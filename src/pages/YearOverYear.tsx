@@ -9,7 +9,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { EnrollmentChart } from '@/components/charts/EnrollmentChart';
 import { useYoYData } from '@/hooks/useDashboardData';
 import { formatNumber, formatPercent, formatPercentChange } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
@@ -46,8 +45,13 @@ export function YearOverYearPage() {
         </p>
       </div>
 
-      {/* Enrollment Chart */}
-      <EnrollmentChart snapshots={snapshots} />
+      {/* Enrollment Trend (embedded) */}
+      <iframe
+        src="https://enroll.che.school/embed/cumulative-enrollment"
+        className="w-full border-0"
+        style={{ height: '55vh' }}
+        title="Cumulative Enrollment"
+      />
 
       {/* Comparison Table */}
       <Card>
@@ -201,8 +205,8 @@ function MetricRow({ label, years, getValue, format, invertColor = false }: Metr
 
         const isPositive = prevValue !== null && value > prevValue;
         const changeColor = invertColor
-          ? (isPositive ? 'text-red-500' : 'text-green-500')
-          : (isPositive ? 'text-green-500' : 'text-red-500');
+          ? (isPositive ? 'text-destructive' : 'text-success')
+          : (isPositive ? 'text-success' : 'text-destructive');
 
         return (
           <TableCell key={year} className="text-right">

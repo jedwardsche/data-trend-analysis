@@ -18,8 +18,8 @@ export function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-muted/50">
       <Card className="w-full max-w-md mx-4">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-primary flex items-center justify-center">
-            <span className="text-primary-foreground font-bold text-2xl">CHE</span>
+          <div className="mx-auto mb-4 h-16 w-16 rounded-xl bg-che-orange flex items-center justify-center">
+            <span className="text-white font-bold text-2xl">CHE</span>
           </div>
           <CardTitle className="text-2xl">KPI Analytics Dashboard</CardTitle>
           <CardDescription>

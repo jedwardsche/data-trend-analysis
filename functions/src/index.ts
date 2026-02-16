@@ -282,13 +282,22 @@ export const triggerManualSync = onCall<TriggerManualSyncRequest>(
     try {
       const result = await syncAirtableData(db, airtableToken.value(), schoolYear);
 
+      // Diagnostic: count students after sync
+      const afterSync = await db.collection('students').count().get();
+      console.log(`[DIAG] Students after syncAirtableData: ${afterSync.data().count}`);
+
       // Regenerate snapshots
       const settings = await getAppSettings();
       const yearsToProcess = schoolYear ? [schoolYear] : settings.activeSchoolYears;
 
       for (const year of yearsToProcess) {
         await calculateSnapshot(db, year, settings);
+        const afterSnap = await db.collection('students').count().get();
+        console.log(`[DIAG] Students after calculateSnapshot(${year}): ${afterSnap.data().count}`);
+
         await calculateEnrollmentTimeline(db, year);
+        const afterTimeline = await db.collection('students').count().get();
+        console.log(`[DIAG] Students after calculateEnrollmentTimeline(${year}): ${afterTimeline.data().count}`);
       }
 
       return {

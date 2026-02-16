@@ -1,0 +1,19 @@
+{
+  "mcp.allowedTools": [
+    "che:get_context_overview",
+    "che:get_context_section",
+    "che:get_design_system_context",
+    "che:get_project_registries",
+    "che:init_che_project",
+    "che:write_globals_css",
+    "che:get_che_css_theme",
+    "che:get_changelog",
+    "che:list_items_in_registries",
+    "che:search_items_in_registries",
+    "che:view_items_in_registries",
+    "che:get_item_examples_from_registries",
+    "che:get_add_command_for_items",
+    "che:get_audit_checklist",
+    "che:scan_project_for_secrets"
+  ]
+}

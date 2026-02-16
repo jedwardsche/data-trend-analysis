@@ -14,9 +14,9 @@ export function RetentionGauge({ rate, returningStudents, eligibleStudents }: Re
 
   // Color based on rate
   const getColor = () => {
-    if (rate >= 80) return 'text-green-500';
-    if (rate >= 60) return 'text-yellow-500';
-    return 'text-red-500';
+    if (rate >= 80) return 'text-success';
+    if (rate >= 60) return 'text-warning';
+    return 'text-destructive';
   };
 
   return (

@@ -185,12 +185,39 @@ export function normalizeString(str: string): string {
 }
 
 export function formatDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  return d.toISOString().split('T')[0];
+  if (!date) return '';
+  try {
+    const str = typeof date === 'string' ? date.trim() : '';
+
+    if (str) {
+      // Try M/D/YYYY format first (Airtable cellFormat=string with en-us)
+      const mdyMatch = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+      if (mdyMatch) {
+        const [, m, d, y] = mdyMatch;
+        return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      }
+
+      // Try YYYY-MM-DD (already ISO)
+      const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoMatch) {
+        return isoMatch[0];
+      }
+    }
+
+    // Fallback to Date constructor
+    const d = typeof date === 'string' ? new Date(date) : date;
+    if (isNaN(d.getTime())) return '';
+    return d.toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
 }
 
 export function createStudentKey(firstName: string, lastName: string, dob: string): string {
-  return `${normalizeString(firstName)}|${normalizeString(lastName)}|${formatDate(dob)}`;
+  const formattedDob = formatDate(dob) || normalizeString(dob);
+  // Replace forward slashes to prevent Firestore subcollection creation
+  const safeDob = formattedDob.replace(/\//g, '-');
+  return `${normalizeString(firstName)}|${normalizeString(lastName)}|${safeDob}`;
 }
 
 export function createCampusKey(campusName: string, mcLeader: string): string {

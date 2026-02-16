@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "che": {
+      "command": "npx",
+      "args": [
+        "@che-systems/cli@latest",
+        "mcp"
+      ]
+    }
+  }
+}

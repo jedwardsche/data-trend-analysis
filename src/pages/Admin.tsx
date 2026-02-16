@@ -14,7 +14,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, UserPlus, Trash2, Download, FileText } from 'lucide-react';
+import { RefreshCw, UserPlus, Trash2, Download, FileText, CheckCircle2, XCircle, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { triggerManualSync, updateSettings, manageAllowedUsers, exportPDF, exportCSV } from '@/lib/functions';
 import { toast } from 'sonner';
@@ -31,6 +31,7 @@ export function AdminPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
   const [erbocesInput, setErbocesInput] = useState('');
+  const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch users
   const { data: usersData, isLoading: usersLoading } = useQuery({
@@ -41,13 +42,21 @@ export function AdminPage() {
   // Sync mutation
   const syncMutation = useMutation({
     mutationFn: triggerManualSync,
+    onMutate: () => {
+      setSyncStatus(null);
+    },
     onSuccess: (data) => {
-      toast.success(data.message);
+      const errCount = data.details?.errors?.length || 0;
+      const processed = data.details?.processed || 0;
+      const msg = errCount > 0
+        ? `Sync completed: ${processed} records processed with ${errCount} error(s)`
+        : `Sync completed successfully: ${processed} records processed`;
+      setSyncStatus({ type: errCount > 0 ? 'error' : 'success', message: msg });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
       queryClient.invalidateQueries({ queryKey: ['snapshot'] });
     },
     onError: (error) => {
-      toast.error('Sync failed: ' + (error as Error).message);
+      setSyncStatus({ type: 'error', message: 'Sync failed: ' + (error as Error).message });
     }
   });
 
@@ -171,15 +180,33 @@ export function AdminPage() {
               Sync {selectedYear} Only
             </Button>
           </div>
-          {syncMutation.data && (
-            <p className="text-sm text-muted-foreground">
-              Last sync: {syncMutation.data.details.processed} records processed
-              {syncMutation.data.details.errors.length > 0 && (
-                <span className="text-destructive ml-2">
-                  ({syncMutation.data.details.errors.length} errors)
-                </span>
-              )}
-            </p>
+          {syncMutation.isPending && (
+            <div className="flex items-center gap-2 rounded-md border border-border bg-muted/50 p-3">
+              <RefreshCw className="h-4 w-4 animate-spin text-muted-foreground" />
+              <p className="text-sm font-medium">Syncing data from Airtable... This may take a few minutes.</p>
+            </div>
+          )}
+          {syncStatus && (
+            <div className={`flex items-start justify-between gap-2 rounded-md border p-3 ${
+              syncStatus.type === 'success'
+                ? 'border-success/30 bg-success/10 text-success'
+                : 'border-destructive/30 bg-destructive/10 text-destructive'
+            }`}>
+              <div className="flex items-start gap-2">
+                {syncStatus.type === 'success' ? (
+                  <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0" />
+                ) : (
+                  <XCircle className="h-5 w-5 mt-0.5 shrink-0" />
+                )}
+                <p className="text-sm font-medium">{syncStatus.message}</p>
+              </div>
+              <button
+                onClick={() => setSyncStatus(null)}
+                className="shrink-0 rounded-sm opacity-70 hover:opacity-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
           )}
         </CardContent>
       </Card>

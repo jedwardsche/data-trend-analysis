@@ -48,8 +48,8 @@ export function MetricCard({
           <TrendIcon
             className={cn(
               'h-4 w-4',
-              change !== null && change > 0 && 'text-green-500',
-              change !== null && change < 0 && 'text-red-500',
+              change !== null && change > 0 && 'text-success',
+              change !== null && change < 0 && 'text-destructive',
               change === 0 && 'text-muted-foreground'
             )}
           />
@@ -60,8 +60,8 @@ export function MetricCard({
         {change !== null && (
           <p className={cn(
             'text-xs',
-            change > 0 && 'text-green-500',
-            change < 0 && 'text-red-500',
+            change > 0 && 'text-success',
+            change < 0 && 'text-destructive',
             change === 0 && 'text-muted-foreground'
           )}>
             {change > 0 ? '+' : ''}{change.toFixed(1)}% from previous year

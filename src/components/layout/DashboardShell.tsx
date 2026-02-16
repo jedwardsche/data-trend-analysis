@@ -70,8 +70,8 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">CHE</span>
+            <div className="h-8 w-8 rounded-lg bg-che-orange flex items-center justify-center">
+              <span className="text-white font-bold text-sm">CHE</span>
             </div>
             <span className="font-semibold text-lg hidden sm:inline">KPI Analytics</span>
           </div>
@@ -135,7 +135,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
                   className={cn(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                     isActive
-                      ? 'bg-primary text-primary-foreground'
+                      ? 'bg-brand text-white'
                       : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
                   )}
                 >

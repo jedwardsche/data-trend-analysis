@@ -103,7 +103,7 @@ export function DashboardPage() {
             <CardTitle>ERBOCES Projected Revenue</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center h-[200px]">
-            <p className="text-4xl font-bold text-green-600">
+            <p className="text-4xl font-bold text-success">
               {formatCurrency(erbocesRevenue)}
             </p>
             <p className="text-sm text-muted-foreground mt-2">

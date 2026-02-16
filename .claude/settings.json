@@ -1,0 +1,319 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__che__get_context_overview",
+      "mcp__che__get_context_section",
+      "mcp__che__get_design_system_context",
+      "mcp__che__get_project_registries",
+      "mcp__che__init_che_project",
+      "mcp__che__write_globals_css",
+      "mcp__che__get_che_css_theme",
+      "mcp__che__get_changelog",
+      "mcp__che__list_items_in_registries",
+      "mcp__che__search_items_in_registries",
+      "mcp__che__view_items_in_registries",
+      "mcp__che__get_item_examples_from_registries",
+      "mcp__che__get_add_command_for_items",
+      "mcp__che__get_audit_checklist",
+      "mcp__che__scan_project_for_secrets"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash(firebase deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Firebase deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(gh pr create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before creating PR..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(gh release create*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before creating release..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(git push*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before git push..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(aws deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before AWS deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(aws s3 sync*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before S3 sync..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(aws cloudformation deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before CloudFormation deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(cdk deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before CDK deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(sam deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before SAM deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(serverless deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Serverless deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(vercel*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Vercel deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(netlify deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Netlify deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(fly deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Fly.io deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(railway up*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Railway deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(heroku *)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Heroku deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(docker push*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Docker push..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(kubectl apply*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before kubectl apply..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(helm install*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Helm install..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(helm upgrade*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Helm upgrade..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(gcloud app deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before GCP App Engine deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(gcloud run deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Cloud Run deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(gcloud functions deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Cloud Functions deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(az webapp deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Azure deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(az functionapp deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Azure Functions deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(pulumi up*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Pulumi deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(terraform apply*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Terraform apply..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(wrangler deploy*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Cloudflare Workers deploy..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(wrangler publish*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before Cloudflare Workers publish..."
+          }
+        ]
+      },
+      {
+        "matcher": "Bash(npm publish*)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx @che-systems/cli@latest scan",
+            "statusMessage": "Scanning for secrets before npm publish..."
+          }
+        ]
+      }
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "che"
+  ]
+}

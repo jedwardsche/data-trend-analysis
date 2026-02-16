@@ -246,12 +246,19 @@ exports.triggerManualSync = (0, https_1.onCall)({
     console.log('Starting manual sync...', schoolYear ? `for ${schoolYear}` : 'for all years');
     try {
         const result = await (0, airtable_1.syncAirtableData)(db, airtableToken.value(), schoolYear);
+        // Diagnostic: count students after sync
+        const afterSync = await db.collection('students').count().get();
+        console.log(`[DIAG] Students after syncAirtableData: ${afterSync.data().count}`);
         // Regenerate snapshots
         const settings = await getAppSettings();
         const yearsToProcess = schoolYear ? [schoolYear] : settings.activeSchoolYears;
         for (const year of yearsToProcess) {
             await (0, metrics_1.calculateSnapshot)(db, year, settings);
+            const afterSnap = await db.collection('students').count().get();
+            console.log(`[DIAG] Students after calculateSnapshot(${year}): ${afterSnap.data().count}`);
             await (0, metrics_1.calculateEnrollmentTimeline)(db, year);
+            const afterTimeline = await db.collection('students').count().get();
+            console.log(`[DIAG] Students after calculateEnrollmentTimeline(${year}): ${afterTimeline.data().count}`);
         }
         return {
             success: true,

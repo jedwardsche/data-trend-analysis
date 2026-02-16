@@ -141,9 +141,9 @@ export function CampusesPage() {
                   <TableCell className="text-right">{formatNumber(campus.newStudents)}</TableCell>
                   <TableCell className="text-right">
                     <span className={
-                      campus.retentionRate >= 80 ? 'text-green-600' :
-                      campus.retentionRate >= 60 ? 'text-yellow-600' :
-                      'text-red-600'
+                      campus.retentionRate >= 80 ? 'text-success' :
+                      campus.retentionRate >= 60 ? 'text-warning' :
+                      'text-destructive'
                     }>
                       {formatPercent(campus.retentionRate)}
                     </span>

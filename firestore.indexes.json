@@ -1,0 +1,45 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolYear", "order": "ASCENDING" },
+        { "fieldPath": "campusKey", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "students",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolYear", "order": "ASCENDING" },
+        { "fieldPath": "isReturningCampus", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "snapshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolYear", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "snapshots",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolYear", "order": "ASCENDING" },
+        { "fieldPath": "isCountDay", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "enrollmentTimeline",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "schoolYear", "order": "ASCENDING" },
+        { "fieldPath": "weekNumber", "order": "ASCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

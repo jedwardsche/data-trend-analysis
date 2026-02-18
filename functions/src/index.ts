@@ -91,8 +91,8 @@ export const scheduledSync = onSchedule(
     schedule: '0 9 * * *', // 9:00 AM UTC = 2:00 AM MT (MST)
     timeZone: 'America/Denver',
     secrets: [airtableToken],
-    timeoutSeconds: 540,
-    memory: '512MiB'
+    timeoutSeconds: 900,
+    memory: '1GiB'
   },
   async () => {
     console.log('Starting scheduled Airtable sync...');
@@ -269,8 +269,8 @@ export const triggerManualSync = onCall<TriggerManualSyncRequest>(
   {
     enforceAppCheck: false,
     secrets: [airtableToken],
-    timeoutSeconds: 540,
-    memory: '512MiB'
+    timeoutSeconds: 900,
+    memory: '1GiB'
   },
   async (request: CallableRequest<TriggerManualSyncRequest>) => {
     await validateAdmin(request.auth);

@@ -42,7 +42,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const [selectedYear, setSelectedYear] = useState('2025-26');
+  const [selectedYear, setSelectedYear] = useState('2026-27');
 
   const fallback = (
     <div className="min-h-screen flex items-center justify-center">

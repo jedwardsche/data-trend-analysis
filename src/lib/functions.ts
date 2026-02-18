@@ -88,7 +88,8 @@ export async function triggerManualSync(
 ): Promise<SyncResponse> {
   const fn = httpsCallable<TriggerManualSyncRequest, SyncResponse>(
     functions,
-    'triggerManualSync'
+    'triggerManualSync',
+    { timeout: 600_000 }
   );
   const result = await fn(request || {});
   return result.data;

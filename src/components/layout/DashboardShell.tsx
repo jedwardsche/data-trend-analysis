@@ -11,6 +11,7 @@ import {
   Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CheLogo } from '@/components/ui/logo';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -37,7 +38,7 @@ const navItems = [
 ];
 
 // Default school years - will be updated from settings
-const schoolYears = ['2025-26', '2024-25', '2023-24'];
+const schoolYears = ['2026-27', '2025-26', '2024-25', '2023-24'];
 
 interface DashboardShellProps {
   selectedYear: string;
@@ -70,9 +71,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
           </Button>
 
           <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-che-orange flex items-center justify-center">
-              <span className="text-white font-bold text-sm">CHE</span>
-            </div>
+            <CheLogo variant="symbol" width={32} height={32} className="text-che-orange" />
             <span className="font-semibold text-lg hidden sm:inline">KPI Analytics</span>
           </div>
 

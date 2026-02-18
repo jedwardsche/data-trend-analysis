@@ -102,8 +102,8 @@ exports.scheduledSync = (0, scheduler_1.onSchedule)({
     schedule: '0 9 * * *', // 9:00 AM UTC = 2:00 AM MT (MST)
     timeZone: 'America/Denver',
     secrets: [airtableToken],
-    timeoutSeconds: 540,
-    memory: '512MiB'
+    timeoutSeconds: 900,
+    memory: '1GiB'
 }, async () => {
     console.log('Starting scheduled Airtable sync...');
     try {
@@ -238,8 +238,8 @@ exports.getSnapshotData = (0, https_1.onCall)({ enforceAppCheck: false }, async 
 exports.triggerManualSync = (0, https_1.onCall)({
     enforceAppCheck: false,
     secrets: [airtableToken],
-    timeoutSeconds: 540,
-    memory: '512MiB'
+    timeoutSeconds: 900,
+    memory: '1GiB'
 }, async (request) => {
     await validateAdmin(request.auth);
     const { schoolYear } = request.data;

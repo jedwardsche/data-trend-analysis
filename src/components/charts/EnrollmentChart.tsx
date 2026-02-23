@@ -40,16 +40,16 @@ export function EnrollmentChart({ snapshots, title = 'Enrollment by Year' }: Enr
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="year"
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'var(--muted-foreground)' }}
               />
               <YAxis
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                tick={{ fill: 'var(--muted-foreground)' }}
                 tickFormatter={(value) => formatNumber(value)}
               />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--background))',
-                  border: '1px solid hsl(var(--border))',
+                  backgroundColor: 'var(--background)',
+                  border: '1px solid var(--border)',
                   borderRadius: '8px'
                 }}
                 formatter={(value: number) => formatNumber(value)}
@@ -59,19 +59,19 @@ export function EnrollmentChart({ snapshots, title = 'Enrollment by Year' }: Enr
                 dataKey="returning"
                 name="Returning Students"
                 stackId="a"
-                fill="hsl(var(--chart-1))"
+                fill="var(--chart-1)"
               />
               <Bar
                 dataKey="newInternal"
                 name="New (Returning Campuses)"
                 stackId="a"
-                fill="hsl(var(--chart-2))"
+                fill="var(--chart-2)"
               />
               <Bar
                 dataKey="newCampus"
                 name="New (New Campuses)"
                 stackId="a"
-                fill="hsl(var(--chart-3))"
+                fill="var(--chart-3)"
               />
             </BarChart>
           </ResponsiveContainer>

@@ -30,7 +30,7 @@ export function GrowthBreakdown({ internalGrowth, newCampusGrowth }: GrowthBreak
     }
   ];
 
-  const COLORS = ['hsl(var(--chart-2))', 'hsl(var(--chart-3))'];
+  const COLORS = ['var(--chart-2)', 'var(--chart-3)'];
 
   return (
     <Card>
@@ -56,8 +56,8 @@ export function GrowthBreakdown({ internalGrowth, newCampusGrowth }: GrowthBreak
               </Pie>
               <Tooltip
                 contentStyle={{
-                  backgroundColor: 'hsl(var(--background))',
-                  border: '1px solid hsl(var(--border))',
+                  backgroundColor: 'var(--background)',
+                  border: '1px solid var(--border)',
                   borderRadius: '8px'
                 }}
                 formatter={(value: number, name: string) => [

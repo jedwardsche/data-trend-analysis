@@ -191,6 +191,13 @@ export function YearOverYearPage() {
                 invertColor
               />
               <MetricRow
+                label="Total Attrition"
+                years={years}
+                getValue={(y) => snapshots[y].metrics.attritionTotal}
+                format="number"
+                invertColor
+              />
+              <MetricRow
                 label="Net Growth"
                 years={years}
                 getValue={(y) => snapshots[y].metrics.netGrowth}

@@ -9,6 +9,8 @@ import {
   createCampusKey,
   formatDate,
   isActiveEnrollment,
+  isNonStarterStatus,
+  isWithdrawalStatus,
   normalizeString
 } from './types';
 
@@ -567,12 +569,25 @@ export async function syncAirtableData(
       // Sanitize document ID: replace forward slashes to prevent subcollection creation
       const docId = `${year}-${key}`.replace(/\//g, '-');
 
+      // Derive attrition flags from enrollment status
+      const status = student.enrollmentStatus || '';
+      const isNonStarter = isNonStarterStatus(status);
+      const isWithdrawal = isWithdrawalStatus(status);
+
+      // attendedAtLeastOnce: false for non-starters, true for everyone else
+      const attendedAtLeastOnce = !isNonStarter;
+
+      // withdrawalDate: use enrolled date as proxy for withdrawal students
+      // (exact withdrawal date not available from Airtable)
+      const withdrawalDate = isWithdrawal ? (student.enrolledDate || new Date().toISOString().split('T')[0]) : null;
+
       const fullStudent: StudentRecord = {
         id: docId,
         ...student as Omit<StudentRecord, 'id' | 'isReturningStudent' | 'isReturningCampus' | 'attendedAtLeastOnce' | 'syncedAt'>,
         isReturningStudent: studentYears.has(priorYear),
         isReturningCampus: campusYears.has(priorYear),
-        attendedAtLeastOnce: true, // Default to true; refine with attendance data later
+        attendedAtLeastOnce,
+        withdrawalDate,
         syncedAt: new Date().toISOString()
       };
 

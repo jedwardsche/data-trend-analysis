@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -9,9 +10,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useYoYData } from '@/hooks/useDashboardData';
+import { useYoYData, useAllYearsTimelineData } from '@/hooks/useDashboardData';
 import { formatNumber, formatPercent, formatPercentChange } from '@/lib/formatters';
 import { Badge } from '@/components/ui/badge';
+import { CampusCumulativeChart } from '@/components/charts/CampusCumulativeChart';
+import { getCampusKeysForType } from '@/lib/campus-utils';
 
 interface OutletContext {
   selectedYear: string;
@@ -20,6 +23,30 @@ interface OutletContext {
 export function YearOverYearPage() {
   const { selectedYear } = useOutletContext<OutletContext>();
   const { data, isLoading, error } = useYoYData(selectedYear);
+  const { data: timelineData, isLoading: timelineLoading } = useAllYearsTimelineData();
+
+  // Derive campus keys by type from the most recent snapshot
+  const { branchKeys, microKeys } = useMemo(() => {
+    if (!data?.snapshots) return { branchKeys: [], microKeys: [] };
+
+    // Collect all campus keys across all years for completeness
+    const allBranch = new Set<string>();
+    const allMicro = new Set<string>();
+
+    for (const snapshot of Object.values(data.snapshots)) {
+      for (const key of getCampusKeysForType(snapshot.byCampus, 'branch')) {
+        allBranch.add(key);
+      }
+      for (const key of getCampusKeysForType(snapshot.byCampus, 'micro-campus')) {
+        allMicro.add(key);
+      }
+    }
+
+    return {
+      branchKeys: Array.from(allBranch),
+      microKeys: Array.from(allMicro),
+    };
+  }, [data?.snapshots]);
 
   if (isLoading) {
     return <YoYSkeleton />;
@@ -52,6 +79,45 @@ export function YearOverYearPage() {
         style={{ height: '55vh' }}
         title="Cumulative Enrollment"
       />
+
+      {/* Campus Type Cumulative Charts */}
+      {timelineData?.timelines && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {branchKeys.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Branch Campus Enrollment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CampusCumulativeChart
+                  timelines={timelineData.timelines}
+                  campusKeys={branchKeys}
+                />
+              </CardContent>
+            </Card>
+          )}
+          {microKeys.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Micro-Campus Enrollment</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <CampusCumulativeChart
+                  timelines={timelineData.timelines}
+                  campusKeys={microKeys}
+                />
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {timelineLoading && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-[400px]" />
+          <Skeleton className="h-[400px]" />
+        </div>
+      )}
 
       {/* Comparison Table */}
       <Card>

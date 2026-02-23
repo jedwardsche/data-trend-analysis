@@ -115,35 +115,34 @@ async function calculateSnapshot(db, schoolYear, settings) {
             campus.retentionRate = Math.round((campus.returningStudents / priorCount) * 100);
         }
     }
-    // Check if this should be an Oct 1 locked snapshot
+    // Check if this should be the locked Oct 1 count-day snapshot
     const today = new Date();
     const countDayParts = settings.countDayDate.split('-').map(p => parseInt(p));
     const countDayMonth = countDayParts[0];
     const countDayDay = countDayParts[1];
     const currentYearNum = schoolYear.split('-')[0];
     const countDayDate = new Date(parseInt(currentYearNum), countDayMonth - 1, countDayDay);
-    const isCountDay = today >= countDayDate;
     const isCurrentYear = schoolYear === settings.currentSchoolYear;
-    // Check if locked snapshot already exists
+    // Only lock a count-day snapshot for the current year, and only once
     let shouldLock = false;
-    if (isCountDay && isCurrentYear) {
+    if (isCurrentYear && today >= countDayDate) {
         const existingLocked = await db.collection('snapshots')
             .where('schoolYear', '==', schoolYear)
             .where('isCountDay', '==', true)
             .limit(1)
             .get();
-        // Only lock if no existing locked snapshot (check lockedAt in code)
         shouldLock = existingLocked.empty ||
             !existingLocked.docs.some(doc => doc.data().lockedAt != null);
     }
     const snapshotId = shouldLock
         ? `${schoolYear}-countday`
         : `${schoolYear}-${(0, date_fns_1.format)(today, 'yyyy-MM-dd-HHmmss')}`;
+    // isCountDay is only true for the explicitly locked Oct 1 snapshot
     const snapshot = {
         id: snapshotId,
         schoolYear,
         snapshotDate: (0, date_fns_1.format)(today, 'yyyy-MM-dd'),
-        isCountDay: shouldLock || !isCurrentYear,
+        isCountDay: shouldLock,
         metrics,
         byCampus,
         createdAt: new Date().toISOString(),
@@ -171,11 +170,10 @@ async function calculateEnrollmentTimeline(db, schoolYear) {
         const enrollDate = (0, date_fns_1.parseISO)(student.enrolledDate);
         const weekStartDate = (0, date_fns_1.startOfWeek)(enrollDate, { weekStartsOn: 0 });
         const weekKey = (0, date_fns_1.format)(weekStartDate, 'yyyy-MM-dd');
-        const weekNum = (0, date_fns_1.getWeek)(enrollDate);
         if (!weeklyData.has(weekKey)) {
             weeklyData.set(weekKey, {
                 weekStart: weekStartDate,
-                weekNumber: weekNum,
+                weekNumber: 0, // assigned sequentially after sorting
                 students: [],
                 byCampus: new Map()
             });
@@ -190,11 +188,12 @@ async function calculateEnrollmentTimeline(db, schoolYear) {
     // Convert to sorted array
     const sortedWeeks = Array.from(weeklyData.entries())
         .sort((a, b) => a[1].weekStart.getTime() - b[1].weekStart.getTime());
-    // Calculate cumulative totals
+    // Calculate cumulative totals with sequential week numbering
     const timeline = [];
     let cumulativeTotal = 0;
     const cumulativeByCampus = new Map();
-    for (const [, data] of sortedWeeks) {
+    let weekIndex = 1; // sequential week number
+    for (const [weekKey, data] of sortedWeeks) {
         const newEnrollments = data.students.length;
         cumulativeTotal += newEnrollments;
         const byCampus = {};
@@ -207,15 +206,16 @@ async function calculateEnrollmentTimeline(db, schoolYear) {
             };
         }
         const enrollmentWeek = {
-            id: `${schoolYear}-W${data.weekNumber.toString().padStart(2, '0')}`,
+            id: `${schoolYear}-${weekKey}`, // date-based ID prevents collisions
             schoolYear,
             weekStart: (0, date_fns_1.format)(data.weekStart, 'yyyy-MM-dd'),
-            weekNumber: data.weekNumber,
+            weekNumber: weekIndex,
             newEnrollments,
             cumulativeEnrollment: cumulativeTotal,
             byCampus
         };
         timeline.push(enrollmentWeek);
+        weekIndex++;
     }
     // Save to Firestore (handle batch size limit of 500)
     const timelineRef = db.collection('enrollmentTimeline');

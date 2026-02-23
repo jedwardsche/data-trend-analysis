@@ -67,6 +67,16 @@ async function getAirtableConfig(db) {
                                 studentLink: 'Student',
                                 date: 'Date'
                             }
+                        },
+                        studentTruth: {
+                            tableIdOrName: 'Student Truth',
+                            fields: {
+                                studentLink: 'Student',
+                                dateEnrolled: 'Date Enrolled',
+                                enrollmentStatus: 'Status of Enrollment',
+                                schoolYear: 'School Year',
+                                created: 'Created'
+                            }
                         }
                     },
                     attendanceMode: 'absence'
@@ -87,7 +97,7 @@ async function getAirtableConfig(db) {
                                 mcLeader: '',
                                 created: 'Created',
                                 lastModified: 'Last Modified',
-                                schoolYear: 'School Year Text'
+                                schoolYear: 'School Year'
                             }
                         },
                         attendance: {
@@ -96,6 +106,16 @@ async function getAirtableConfig(db) {
                                 studentLink: 'Student',
                                 date: 'Date',
                                 status: 'Status'
+                            }
+                        },
+                        studentTruth: {
+                            tableIdOrName: 'Student Truth',
+                            fields: {
+                                studentLink: 'Student',
+                                dateEnrolled: 'Date Enrolled',
+                                enrollmentStatus: 'Status of Enrollment',
+                                schoolYear: 'School Year',
+                                created: 'Created'
                             }
                         }
                     },
@@ -165,7 +185,7 @@ function extractSchoolYears(yearStr) {
 /**
  * Process students from Airtable records into StudentRecord partials
  */
-function processStudents(records, baseConfig, targetYear) {
+function processStudents(records, baseConfig, targetYear, studentTruthLookup) {
     const students = new Map();
     const fields = baseConfig.tables.students.fields;
     let skippedCount = 0;
@@ -185,9 +205,18 @@ function processStudents(records, baseConfig, targetYear) {
             const mcLeader = fields.mcLeader ? getFieldValue(record, fields.mcLeader) : '';
             const rawStatus = getFieldValue(record, fields.enrollmentStatus);
             const enrollmentStatus = getLastUniqueValue(rawStatus);
-            // Use Enrollment Date field if available, fallback to record createdTime
-            const enrollmentDate = getFieldValue(record, 'Enrollment Date') ||
-                (record.createdTime ? record.createdTime : '');
+            // Look up year-specific Date Enrolled from Student Truth table
+            let enrollmentDate = '';
+            if (studentTruthLookup && studentTruthLookup.size > 0) {
+                const displayName = `${firstName} ${lastName}`;
+                const lookupKey = `${(0, types_1.normalizeString)(displayName)}|${targetYear}`;
+                enrollmentDate = studentTruthLookup.get(lookupKey) || '';
+            }
+            // Fallback: Students table "Enrollment Date" → record createdTime
+            if (!enrollmentDate) {
+                enrollmentDate = getFieldValue(record, 'Enrollment Date') ||
+                    (record.createdTime ? record.createdTime : '');
+            }
             students.set(studentKey, {
                 studentKey,
                 firstName,
@@ -220,6 +249,13 @@ async function syncAirtableData(db, token, targetSchoolYear) {
     const config = await getAirtableConfig(db);
     const errors = [];
     let processed = 0;
+    // When syncing a specific year, also load its prior year for isReturningStudent lookup.
+    // The prior year may live in a different Airtable base.
+    let priorYearForLookup;
+    if (targetSchoolYear) {
+        const parts = targetSchoolYear.split('-').map(p => parseInt(p));
+        priorYearForLookup = `${parts[0] - 1}-${parts[1] - 1}`;
+    }
     // Collect all student data across years for cross-year matching
     const allStudentsByYear = new Map();
     const allCampusesByYear = new Map();
@@ -230,6 +266,59 @@ async function syncAirtableData(db, token, targetSchoolYear) {
             // Fetch ALL records from this base once (cellFormat=string resolves linked records)
             const records = await fetchAirtableRecords(base.baseId, base.tables.students.tableIdOrName, token);
             console.log(`  Fetched ${records.length} total student records`);
+            // Fetch Student Truth records for year-specific enrollment dates
+            const studentTruthLookup = new Map(); // key: "normalizedName|year" → dateEnrolled
+            if (base.tables.studentTruth) {
+                console.log(`  Fetching Student Truth records from ${base.label}...`);
+                const truthRecords = await fetchAirtableRecords(base.baseId, base.tables.studentTruth.tableIdOrName, token);
+                console.log(`  Fetched ${truthRecords.length} Student Truth records`);
+                const truthFields = base.tables.studentTruth.fields;
+                // Log sample records for diagnostics
+                if (truthRecords.length > 0) {
+                    console.log('  Sample Student Truth records:');
+                    truthRecords.slice(0, 5).forEach((r, i) => {
+                        const name = getFieldValue(r, truthFields.studentLink);
+                        const year = getFieldValue(r, truthFields.schoolYear);
+                        const date = getFieldValue(r, truthFields.dateEnrolled);
+                        const created = getFieldValue(r, truthFields.created);
+                        console.log(`    [${i}] Student="${name}", Year="${year}", DateEnrolled="${date}", Created="${created}"`);
+                    });
+                }
+                for (const record of truthRecords) {
+                    const rawStudentName = getFieldValue(record, truthFields.studentLink);
+                    const rawYear = getFieldValue(record, truthFields.schoolYear);
+                    const dateEnrolled = getFieldValue(record, truthFields.dateEnrolled);
+                    const created = getFieldValue(record, truthFields.created);
+                    const status = getFieldValue(record, truthFields.enrollmentStatus);
+                    if (!rawStudentName || !rawYear)
+                        continue;
+                    // Student Truth "Student" linked field returns "Last, First" format (may have extra quotes)
+                    // Normalize to "first last" to match Students table firstName + lastName
+                    const cleanName = rawStudentName.replace(/^"+|"+$/g, '').trim(); // strip surrounding quotes
+                    const nameParts = cleanName.split(',').map(s => s.trim());
+                    const normalizedName = nameParts.length >= 2
+                        ? (0, types_1.normalizeString)(`${nameParts[1]} ${nameParts[0]}`) // "First Last"
+                        : (0, types_1.normalizeString)(cleanName);
+                    const years = extractSchoolYears(rawYear);
+                    for (const year of years) {
+                        const lookupKey = `${normalizedName}|${year}`;
+                        // Determine effective date per reference doc logic:
+                        // - For 2024-25 "Enrolled" status: use Created if Date Enrolled missing
+                        // - Otherwise: Date Enrolled, fallback to Created
+                        let effectiveDate = dateEnrolled;
+                        if (!effectiveDate && year === '2024-25' && status === 'Enrolled') {
+                            effectiveDate = created;
+                        }
+                        if (!effectiveDate) {
+                            effectiveDate = created || record.createdTime || '';
+                        }
+                        if (effectiveDate) {
+                            studentTruthLookup.set(lookupKey, effectiveDate);
+                        }
+                    }
+                }
+                console.log(`  Built Student Truth lookup with ${studentTruthLookup.size} entries`);
+            }
             // Log field diagnostics
             if (records.length > 0) {
                 console.log(`  Available fields: ${Object.keys(records[0].fields).join(', ')}`);
@@ -269,9 +358,13 @@ async function syncAirtableData(db, token, targetSchoolYear) {
             if (unmatchedCount > 0) {
                 console.log(`  Records with no School Year: ${unmatchedCount}`);
             }
-            // Process each year this base covers
+            // Process each year this base covers.
+            // When a targetSchoolYear is set, always also process its prior year (for the
+            // isReturningStudent cross-year lookup), even if that year lives in a different base.
             for (const year of base.schoolYears) {
-                if (targetSchoolYear && year !== targetSchoolYear)
+                const isTargetYear = !targetSchoolYear || year === targetSchoolYear;
+                const isPriorLookupYear = priorYearForLookup && year === priorYearForLookup;
+                if (!isTargetYear && !isPriorLookupYear)
                     continue;
                 const yearRecords = recordsByYear.get(year);
                 if (!yearRecords || yearRecords.length === 0) {
@@ -279,7 +372,7 @@ async function syncAirtableData(db, token, targetSchoolYear) {
                     // If no records matched, check if all records have no year and this is a single-year base
                     if (base.schoolYears.length === 1 && recordsByYear.size === 0) {
                         console.log(`  Single-year base with no year field data - assigning all ${records.length} records to ${year}`);
-                        const students = processStudents(records, base, year);
+                        const students = processStudents(records, base, year, studentTruthLookup);
                         console.log(`  Processed ${students.size} unique students for ${year}`);
                         allStudentsByYear.set(year, students);
                         const campuses = new Set();
@@ -291,7 +384,7 @@ async function syncAirtableData(db, token, targetSchoolYear) {
                     continue;
                 }
                 console.log(`  Processing ${yearRecords.length} records for ${year}...`);
-                const students = processStudents(yearRecords, base, year);
+                const students = processStudents(yearRecords, base, year, studentTruthLookup);
                 console.log(`  Processed ${students.size} unique students for ${year}`);
                 // Merge with existing (in case multiple bases contribute to the same year)
                 const existing = allStudentsByYear.get(year) || new Map();
@@ -342,11 +435,16 @@ async function syncAirtableData(db, token, targetSchoolYear) {
             }
         }
     }
-    // Build cross-year student and campus lookup
+    // Build cross-year lookups for isReturningStudent and isReturningCampus.
+    // Only count a student/campus as "present in year X" if they had an ACTIVE enrollment status
+    // that year — this ensures retention rates stay within 0–100%.
     const studentYearLookup = new Map();
     const campusYearLookup = new Map();
     for (const [year, students] of allStudentsByYear) {
         for (const [key, student] of students) {
+            // Only include students with an active enrollment status in this year
+            if (!(0, types_1.isActiveEnrollment)(student.enrollmentStatus || ''))
+                continue;
             if (!studentYearLookup.has(key))
                 studentYearLookup.set(key, new Set());
             studentYearLookup.get(key).add(year);
@@ -361,6 +459,10 @@ async function syncAirtableData(db, token, targetSchoolYear) {
     const studentsRef = db.collection('students');
     const pendingWrites = [];
     for (const [year, students] of allStudentsByYear) {
+        // Skip the prior-year lookup data — it was only loaded to populate studentYearLookup,
+        // not to be (re)written to Firestore.
+        if (priorYearForLookup && year === priorYearForLookup)
+            continue;
         const yearParts = year.split('-').map(p => parseInt(p));
         const priorYear = `${yearParts[0] - 1}-${yearParts[1] - 1}`;
         for (const [key, student] of students) {

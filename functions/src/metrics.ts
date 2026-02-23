@@ -8,7 +8,7 @@ import {
   AppSettings,
   isActiveEnrollment
 } from './types';
-import { format, startOfWeek, parseISO, getWeek } from 'date-fns';
+import { format, startOfWeek, parseISO } from 'date-fns';
 
 /**
  * Calculate snapshot metrics for a school year
@@ -145,7 +145,7 @@ export async function calculateSnapshot(
     }
   }
 
-  // Check if this should be an Oct 1 locked snapshot
+  // Check if this should be the locked Oct 1 count-day snapshot
   const today = new Date();
   const countDayParts = settings.countDayDate.split('-').map(p => parseInt(p));
   const countDayMonth = countDayParts[0];
@@ -154,19 +154,17 @@ export async function calculateSnapshot(
   const currentYearNum = schoolYear.split('-')[0];
   const countDayDate = new Date(parseInt(currentYearNum), countDayMonth - 1, countDayDay);
 
-  const isCountDay = today >= countDayDate;
   const isCurrentYear = schoolYear === settings.currentSchoolYear;
 
-  // Check if locked snapshot already exists
+  // Only lock a count-day snapshot for the current year, and only once
   let shouldLock = false;
-  if (isCountDay && isCurrentYear) {
+  if (isCurrentYear && today >= countDayDate) {
     const existingLocked = await db.collection('snapshots')
       .where('schoolYear', '==', schoolYear)
       .where('isCountDay', '==', true)
       .limit(1)
       .get();
 
-    // Only lock if no existing locked snapshot (check lockedAt in code)
     shouldLock = existingLocked.empty ||
       !existingLocked.docs.some(doc => doc.data().lockedAt != null);
   }
@@ -175,11 +173,12 @@ export async function calculateSnapshot(
     ? `${schoolYear}-countday`
     : `${schoolYear}-${format(today, 'yyyy-MM-dd-HHmmss')}`;
 
+  // isCountDay is only true for the explicitly locked Oct 1 snapshot
   const snapshot: Snapshot = {
     id: snapshotId,
     schoolYear,
     snapshotDate: format(today, 'yyyy-MM-dd'),
-    isCountDay: shouldLock || !isCurrentYear,
+    isCountDay: shouldLock,
     metrics,
     byCampus,
     createdAt: new Date().toISOString(),
@@ -221,12 +220,11 @@ export async function calculateEnrollmentTimeline(
     const enrollDate = parseISO(student.enrolledDate);
     const weekStartDate = startOfWeek(enrollDate, { weekStartsOn: 0 });
     const weekKey = format(weekStartDate, 'yyyy-MM-dd');
-    const weekNum = getWeek(enrollDate);
 
     if (!weeklyData.has(weekKey)) {
       weeklyData.set(weekKey, {
         weekStart: weekStartDate,
-        weekNumber: weekNum,
+        weekNumber: 0, // assigned sequentially after sorting
         students: [],
         byCampus: new Map()
       });
@@ -245,12 +243,13 @@ export async function calculateEnrollmentTimeline(
   const sortedWeeks = Array.from(weeklyData.entries())
     .sort((a, b) => a[1].weekStart.getTime() - b[1].weekStart.getTime());
 
-  // Calculate cumulative totals
+  // Calculate cumulative totals with sequential week numbering
   const timeline: EnrollmentWeek[] = [];
   let cumulativeTotal = 0;
   const cumulativeByCampus = new Map<string, number>();
+  let weekIndex = 1; // sequential week number
 
-  for (const [, data] of sortedWeeks) {
+  for (const [weekKey, data] of sortedWeeks) {
     const newEnrollments = data.students.length;
     cumulativeTotal += newEnrollments;
 
@@ -267,16 +266,17 @@ export async function calculateEnrollmentTimeline(
     }
 
     const enrollmentWeek: EnrollmentWeek = {
-      id: `${schoolYear}-W${data.weekNumber.toString().padStart(2, '0')}`,
+      id: `${schoolYear}-${weekKey}`, // date-based ID prevents collisions
       schoolYear,
       weekStart: format(data.weekStart, 'yyyy-MM-dd'),
-      weekNumber: data.weekNumber,
+      weekNumber: weekIndex,
       newEnrollments,
       cumulativeEnrollment: cumulativeTotal,
       byCampus
     };
 
     timeline.push(enrollmentWeek);
+    weekIndex++;
   }
 
   // Save to Firestore (handle batch size limit of 500)

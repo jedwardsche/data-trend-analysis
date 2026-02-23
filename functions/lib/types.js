@@ -11,6 +11,8 @@ exports.isActiveEnrollment = isActiveEnrollment;
  */
 exports.ACTIVE_ENROLLMENT_STATUSES = [
     'Enrolled',
+    'Pending Enrolled',
+    'Re-enrolled',
     'Enrolled After Count Day (no funding)',
     'Waitlist'
 ];

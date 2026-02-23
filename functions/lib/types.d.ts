@@ -23,9 +23,16 @@ export interface AbsenceFieldMapping {
     studentLink: string;
     date: string;
 }
+export interface StudentTruthFieldMapping {
+    studentLink: string;
+    dateEnrolled: string;
+    enrollmentStatus: string;
+    schoolYear: string;
+    created: string;
+}
 export interface AirtableTableConfig {
     tableIdOrName: string;
-    fields: AirtableFieldMapping | AttendanceFieldMapping | AbsenceFieldMapping;
+    fields: AirtableFieldMapping | AttendanceFieldMapping | AbsenceFieldMapping | StudentTruthFieldMapping;
 }
 export interface AirtableBaseConfig {
     baseId: string;
@@ -129,7 +136,7 @@ export interface AllowedUser {
  */
 export interface GetDashboardDataRequest {
     schoolYear: string;
-    view: 'overview' | 'campus' | 'yoy' | 'timeline';
+    view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline';
     campusKey?: string;
 }
 export interface GetSnapshotDataRequest {
@@ -151,7 +158,7 @@ export interface ExportCSVRequest {
 /**
  * Enrollment Status Constants
  */
-export declare const ACTIVE_ENROLLMENT_STATUSES: readonly ["Enrolled", "Enrolled After Count Day (no funding)", "Waitlist"];
+export declare const ACTIVE_ENROLLMENT_STATUSES: readonly ["Enrolled", "Pending Enrolled", "Re-enrolled", "Enrolled After Count Day (no funding)", "Waitlist"];
 export type ActiveEnrollmentStatus = typeof ACTIVE_ENROLLMENT_STATUSES[number];
 /**
  * Helper Functions

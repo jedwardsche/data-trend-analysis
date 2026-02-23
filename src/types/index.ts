@@ -69,6 +69,7 @@ export interface AppSettings {
   countDayDate: string;
   currentSchoolYear: string;
   activeSchoolYears: string[];
+  fundingByYear?: Record<string, number>;
 }
 
 /**

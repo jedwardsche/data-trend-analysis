@@ -17,6 +17,8 @@ import { Separator } from '@/components/ui/separator';
 import { RefreshCw, UserPlus, Trash2, Download, FileText, CheckCircle2, XCircle, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { triggerManualSync, updateSettings, manageAllowedUsers, exportPDF, exportCSV } from '@/lib/functions';
+import { useOverviewData } from '@/hooks/useDashboardData';
+import { formatCurrency } from '@/lib/formatters';
 import { toast } from 'sonner';
 import type { AllowedUser } from '@/types';
 
@@ -31,7 +33,12 @@ export function AdminPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
   const [erbocesInput, setErbocesInput] = useState('');
+  const [fundingInputs, setFundingInputs] = useState<Record<string, string>>({});
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Fetch settings via overview data
+  const { data: overviewData } = useOverviewData(selectedYear);
+  const settings = overviewData?.settings;
 
   // Fetch users
   const { data: usersData, isLoading: usersLoading } = useQuery({
@@ -144,6 +151,18 @@ export function AdminPage() {
     }
   };
 
+  const handleSaveFunding = (year: string) => {
+    const raw = fundingInputs[year];
+    if (!raw) return;
+    const value = parseFloat(raw);
+    if (isNaN(value) || value < 0) return;
+
+    const existingFunding = settings?.fundingByYear || {};
+    const updatedFunding = { ...existingFunding, [year]: value };
+    settingsMutation.mutate({ fundingByYear: updatedFunding });
+    setFundingInputs(prev => ({ ...prev, [year]: '' }));
+  };
+
   const users = usersData?.users || [];
 
   return (
@@ -214,12 +233,12 @@ export function AdminPage() {
       {/* ERBOCES Settings */}
       <Card>
         <CardHeader>
-          <CardTitle>ERBOCES Settings</CardTitle>
+          <CardTitle>Funding Settings</CardTitle>
           <CardDescription>
-            Configure the per-student cost for revenue projections
+            Configure per-student cost for projections and record actual total funding per year
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <div className="flex gap-4 items-end">
             <div className="space-y-2">
               <Label htmlFor="erboces">Per-Student Cost ($)</Label>
@@ -239,6 +258,74 @@ export function AdminPage() {
               Update
             </Button>
           </div>
+
+          {settings && (
+            <>
+              <Separator />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Total Funding by Year</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Enter actual total funding for past years. Current/future years use per-student cost × enrollment as a projection.
+                  </p>
+                </div>
+                <div className="space-y-3">
+                  {settings.activeSchoolYears.map(year => {
+                    const savedAmount = settings.fundingByYear?.[year];
+                    const isCurrent = year === settings.currentSchoolYear;
+                    const yearIndex = settings.activeSchoolYears.indexOf(year);
+                    const currentIndex = settings.activeSchoolYears.indexOf(settings.currentSchoolYear);
+                    const isPastYear = yearIndex < currentIndex;
+
+                    return (
+                      <div key={year} className="flex items-center gap-4">
+                        <div className="w-20 shrink-0">
+                          <span className="text-sm font-medium">{year}</span>
+                          {isCurrent && (
+                            <Badge variant="outline" className="ml-1 text-[10px] py-0">Current</Badge>
+                          )}
+                        </div>
+                        {isPastYear ? (
+                          <>
+                            <div className="flex gap-2 items-end flex-1">
+                              <Input
+                                type="number"
+                                placeholder={savedAmount ? formatCurrency(savedAmount) : 'Enter total funding'}
+                                value={fundingInputs[year] || ''}
+                                onChange={(e) => setFundingInputs(prev => ({ ...prev, [year]: e.target.value }))}
+                                className="w-48"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => handleSaveFunding(year)}
+                                disabled={settingsMutation.isPending || !fundingInputs[year]}
+                              >
+                                Save
+                              </Button>
+                            </div>
+                            {savedAmount != null && !fundingInputs[year] && (
+                              <span className="text-sm text-success font-medium">
+                                {formatCurrency(savedAmount)}
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            Projected from enrollment × per-student cost
+                            {savedAmount != null && (
+                              <span className="ml-2 text-foreground font-medium">
+                                (Override: {formatCurrency(savedAmount)})
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
 

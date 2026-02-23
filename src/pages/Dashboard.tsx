@@ -46,10 +46,15 @@ export function DashboardPage() {
   const previousSnapshot = yoyData?.snapshots?.[previousYear];
   const pm = previousSnapshot?.metrics;
 
-  // Calculate ERBOCES revenue
-  const erbocesRevenue = settings.erbocesPerStudentCost * m.totalEnrollment;
+  // Calculate ERBOCES revenue — use stored total for past years, projection for current/future
+  const storedFunding = settings.fundingByYear?.[selectedYear];
+  const projectedRevenue = settings.erbocesPerStudentCost * m.totalEnrollment;
+  const erbocesRevenue = storedFunding ?? projectedRevenue;
+  const isActualFunding = storedFunding != null;
+
+  const previousStoredFunding = previousYear ? settings.fundingByYear?.[previousYear] : undefined;
   const previousRevenue = pm
-    ? settings.erbocesPerStudentCost * pm.totalEnrollment
+    ? (previousStoredFunding ?? settings.erbocesPerStudentCost * pm.totalEnrollment)
     : undefined;
 
   return (
@@ -100,14 +105,19 @@ export function DashboardPage() {
         />
         <Card>
           <CardHeader>
-            <CardTitle>ERBOCES Projected Revenue</CardTitle>
+            <CardTitle>
+              ERBOCES {isActualFunding ? 'Total' : 'Projected'} Revenue
+            </CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col items-center justify-center h-[200px]">
             <p className="text-4xl font-bold text-success">
               {formatCurrency(erbocesRevenue)}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              {m.totalEnrollment.toLocaleString()} students × ${settings.erbocesPerStudentCost.toLocaleString()}/student
+              {isActualFunding
+                ? 'Actual total funding'
+                : `${m.totalEnrollment.toLocaleString()} students × $${settings.erbocesPerStudentCost.toLocaleString()}/student`
+              }
             </p>
             {previousRevenue && (
               <p className="text-xs text-muted-foreground mt-1">

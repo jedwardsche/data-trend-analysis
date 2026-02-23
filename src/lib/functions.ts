@@ -12,7 +12,7 @@ import type {
 // Dashboard data
 interface GetDashboardDataRequest {
   schoolYear: string;
-  view: 'overview' | 'campus' | 'yoy' | 'timeline';
+  view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline';
   campusKey?: string;
 }
 
@@ -35,10 +35,15 @@ interface TimelineResponse {
   timeline: EnrollmentWeek[];
 }
 
+interface CampusYoYTimelineResponse {
+  timelines: Record<string, EnrollmentWeek[]>;
+  settings: AppSettings;
+}
+
 export async function getDashboardData(
   request: GetDashboardDataRequest
-): Promise<OverviewResponse | CampusResponse | YoYResponse | TimelineResponse> {
-  const fn = httpsCallable<GetDashboardDataRequest, OverviewResponse | CampusResponse | YoYResponse | TimelineResponse>(
+): Promise<OverviewResponse | CampusResponse | YoYResponse | TimelineResponse | CampusYoYTimelineResponse> {
+  const fn = httpsCallable<GetDashboardDataRequest, OverviewResponse | CampusResponse | YoYResponse | TimelineResponse | CampusYoYTimelineResponse>(
     functions,
     'getDashboardData'
   );

@@ -16,7 +16,16 @@ if [ $? -ne 0 ]; then
 fi
 echo ""
 
-# Deploy everything (functions build runs via predeploy in firebase.json)
+# Build functions (done here instead of via predeploy to avoid npm stdin issues)
+echo "=== Building functions ==="
+npm --prefix "$PROJ_DIR/functions" run build
+if [ $? -ne 0 ]; then
+  echo "Functions build failed!"
+  exit 1
+fi
+echo ""
+
+# Deploy everything (predeploy removed from firebase.json — build is handled above)
 echo "=== Deploying to Firebase (hosting + functions) ==="
 firebase deploy --project che-kpi-analytics
 if [ $? -ne 0 ]; then

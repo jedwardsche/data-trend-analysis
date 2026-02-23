@@ -2,9 +2,10 @@ import { useOutletContext, useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { useCampusData } from '@/hooks/useDashboardData';
+import { useCampusData, useAllYearsTimelineData } from '@/hooks/useDashboardData';
 import { formatNumber, formatPercent } from '@/lib/formatters';
 import { RetentionGauge } from '@/components/charts/RetentionGauge';
+import { CampusCumulativeChart } from '@/components/charts/CampusCumulativeChart';
 import { ArrowLeft } from 'lucide-react';
 
 interface OutletContext {
@@ -16,6 +17,7 @@ export function CampusDetailPage() {
   const { selectedYear } = useOutletContext<OutletContext>();
   const navigate = useNavigate();
   const { data, isLoading, error } = useCampusData(selectedYear, campusKey || '');
+  const { data: timelineData, isLoading: timelineLoading } = useAllYearsTimelineData();
 
   if (isLoading) {
     return <CampusDetailSkeleton />;
@@ -123,6 +125,26 @@ export function CampusDetailPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Cumulative Enrollment Year-Over-Year */}
+      {campusKey && timelineData?.timelines && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Cumulative Enrollment — Year Over Year</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <CampusCumulativeChart
+              timelines={timelineData.timelines}
+              campusKeys={[campusKey]}
+              height={400}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {campusKey && timelineLoading && (
+        <Skeleton className="h-[450px]" />
+      )}
     </div>
   );
 }
@@ -146,6 +168,7 @@ function CampusDetailSkeleton() {
         <Skeleton className="h-64" />
         <Skeleton className="h-64" />
       </div>
+      <Skeleton className="h-[400px]" />
     </div>
   );
 }

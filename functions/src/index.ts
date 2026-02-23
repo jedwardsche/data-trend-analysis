@@ -178,19 +178,13 @@ export const getDashboardData = onCall<GetDashboardDataRequest>(
         const snapshots: Record<string, Snapshot> = {};
 
         for (const year of settings.activeSchoolYears) {
-          // Get locked (Oct 1) snapshot for historical years
-          const isCurrentYear = year === settings.currentSchoolYear;
-          const query = isCurrentYear
-            ? db.collection('snapshots')
-                .where('schoolYear', '==', year)
-                .orderBy('createdAt', 'desc')
-                .limit(1)
-            : db.collection('snapshots')
-                .where('schoolYear', '==', year)
-                .where('isCountDay', '==', true)
-                .limit(1);
+          // Always use the latest snapshot for each year
+          const docs = await db.collection('snapshots')
+            .where('schoolYear', '==', year)
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .get();
 
-          const docs = await query.get();
           if (!docs.empty) {
             snapshots[year] = docs.docs[0].data() as Snapshot;
           }
@@ -212,6 +206,21 @@ export const getDashboardData = onCall<GetDashboardDataRequest>(
         return { timeline };
       }
 
+      case 'campusYoYTimeline': {
+        const timelines: Record<string, EnrollmentWeek[]> = {};
+
+        for (const year of settings.activeSchoolYears) {
+          const docs = await db.collection('enrollmentTimeline')
+            .where('schoolYear', '==', year)
+            .orderBy('weekNumber', 'asc')
+            .get();
+
+          timelines[year] = docs.docs.map(doc => doc.data() as EnrollmentWeek);
+        }
+
+        return { timelines, settings };
+      }
+
       default:
         throw new HttpsError('invalid-argument', 'Invalid view type');
     }
@@ -227,23 +236,13 @@ export const getSnapshotData = onCall<GetSnapshotDataRequest>(
     await validateUser(request.auth);
 
     const { schoolYear, campusKey } = request.data;
-    const settings = await getAppSettings();
 
-    // For current year, get latest snapshot
-    // For past years, get Oct 1 locked snapshot
-    const isCurrentYear = schoolYear === settings.currentSchoolYear;
-
-    let query = isCurrentYear
-      ? db.collection('snapshots')
-          .where('schoolYear', '==', schoolYear)
-          .orderBy('createdAt', 'desc')
-          .limit(1)
-      : db.collection('snapshots')
-          .where('schoolYear', '==', schoolYear)
-          .where('isCountDay', '==', true)
-          .limit(1);
-
-    const docs = await query.get();
+    // Always get the latest snapshot for the requested year
+    const docs = await db.collection('snapshots')
+      .where('schoolYear', '==', schoolYear)
+      .orderBy('createdAt', 'desc')
+      .limit(1)
+      .get();
 
     if (docs.empty) {
       return { snapshot: null };
@@ -344,7 +343,7 @@ export const exportPDF = onCall<ExportPDFRequest>(
       const prevYear = settings.activeSchoolYears[previousYearIndex];
       const prevDocs = await db.collection('snapshots')
         .where('schoolYear', '==', prevYear)
-        .where('isCountDay', '==', true)
+        .orderBy('createdAt', 'desc')
         .limit(1)
         .get();
 

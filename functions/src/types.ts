@@ -26,9 +26,17 @@ export interface AbsenceFieldMapping {
   date: string;
 }
 
+export interface StudentTruthFieldMapping {
+  studentLink: string;
+  dateEnrolled: string;
+  enrollmentStatus: string;
+  schoolYear: string;
+  created: string;
+}
+
 export interface AirtableTableConfig {
   tableIdOrName: string;
-  fields: AirtableFieldMapping | AttendanceFieldMapping | AbsenceFieldMapping;
+  fields: AirtableFieldMapping | AttendanceFieldMapping | AbsenceFieldMapping | StudentTruthFieldMapping;
 }
 
 export interface AirtableBaseConfig {
@@ -129,6 +137,7 @@ export interface AppSettings {
   countDayDate: string;
   currentSchoolYear: string;
   activeSchoolYears: string[];
+  fundingByYear?: Record<string, number>;
 }
 
 export interface AllowedUser {
@@ -142,7 +151,7 @@ export interface AllowedUser {
  */
 export interface GetDashboardDataRequest {
   schoolYear: string;
-  view: 'overview' | 'campus' | 'yoy' | 'timeline';
+  view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline';
   campusKey?: string;
 }
 
@@ -171,6 +180,8 @@ export interface ExportCSVRequest {
  */
 export const ACTIVE_ENROLLMENT_STATUSES = [
   'Enrolled',
+  'Pending Enrolled',
+  'Re-enrolled',
   'Enrolled After Count Day (no funding)',
   'Waitlist'
 ] as const;

@@ -21,6 +21,11 @@ interface TimelineData {
   timeline: EnrollmentWeek[];
 }
 
+interface AllYearsTimelineData {
+  timelines: Record<string, EnrollmentWeek[]>;
+  settings: AppSettings;
+}
+
 export function useOverviewData(schoolYear: string) {
   return useQuery<OverviewData>({
     queryKey: ['dashboard', 'overview', schoolYear],
@@ -78,6 +83,20 @@ export function useTimelineData(schoolYear: string) {
       return result as TimelineData;
     },
     enabled: !!schoolYear,
+    staleTime: 5 * 60 * 1000
+  });
+}
+
+export function useAllYearsTimelineData() {
+  return useQuery<AllYearsTimelineData>({
+    queryKey: ['dashboard', 'campusYoYTimeline'],
+    queryFn: async () => {
+      const result = await getDashboardData({
+        schoolYear: 'all',
+        view: 'campusYoYTimeline'
+      });
+      return result as AllYearsTimelineData;
+    },
     staleTime: 5 * 60 * 1000
   });
 }

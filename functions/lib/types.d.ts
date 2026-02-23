@@ -125,6 +125,7 @@ export interface AppSettings {
     countDayDate: string;
     currentSchoolYear: string;
     activeSchoolYears: string[];
+    fundingByYear?: Record<string, number>;
 }
 export interface AllowedUser {
     email: string;
@@ -160,6 +161,20 @@ export interface ExportCSVRequest {
  */
 export declare const ACTIVE_ENROLLMENT_STATUSES: readonly ["Enrolled", "Pending Enrolled", "Re-enrolled", "Enrolled After Count Day (no funding)", "Waitlist"];
 export type ActiveEnrollmentStatus = typeof ACTIVE_ENROLLMENT_STATUSES[number];
+/**
+ * Non-starter statuses: student enrolled but never attended.
+ * Match case-insensitively against enrollmentStatus.
+ */
+export declare const NON_STARTER_STATUSES: readonly ["Non-Starter", "No Show", "Never Attended", "Non Starter"];
+/**
+ * Withdrawal / unenrollment statuses: student left or was removed.
+ * "Unenrolled" and "Unenrolled After Count Day" are the primary attrition
+ * statuses in the CHE Airtable data.
+ * Match case-insensitively against enrollmentStatus.
+ */
+export declare const WITHDRAWAL_STATUSES: readonly ["Unenrolled", "Unenrolled After Count Day", "Withdrew", "Withdrawn", "Dropped", "Dropped Out", "Transferred", "Transferred Out", "Disenrolled", "Expelled", "Inactive"];
+export declare function isNonStarterStatus(status: string): boolean;
+export declare function isWithdrawalStatus(status: string): boolean;
 /**
  * Helper Functions
  */

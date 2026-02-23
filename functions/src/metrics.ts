@@ -253,15 +253,20 @@ export async function calculateEnrollmentTimeline(
     const newEnrollments = data.students.length;
     cumulativeTotal += newEnrollments;
 
-    const byCampus: Record<string, { newEnrollments: number; cumulativeEnrollment: number }> = {};
-
+    // Update cumulative counts for campuses with new enrollments this week
     for (const [campusKey, campusStudents] of data.byCampus) {
       const campusCumulative = (cumulativeByCampus.get(campusKey) || 0) + campusStudents.length;
       cumulativeByCampus.set(campusKey, campusCumulative);
+    }
 
+    // Write ALL known campus cumulative values (not just those with new enrollments this week)
+    // so the chart can read cumulative totals for every campus at every week
+    const byCampus: Record<string, { newEnrollments: number; cumulativeEnrollment: number }> = {};
+    for (const [campusKey, cumulative] of cumulativeByCampus) {
+      const campusStudents = data.byCampus.get(campusKey);
       byCampus[campusKey] = {
-        newEnrollments: campusStudents.length,
-        cumulativeEnrollment: campusCumulative
+        newEnrollments: campusStudents ? campusStudents.length : 0,
+        cumulativeEnrollment: cumulative
       };
     }
 

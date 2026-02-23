@@ -189,6 +189,51 @@ export const ACTIVE_ENROLLMENT_STATUSES = [
 export type ActiveEnrollmentStatus = typeof ACTIVE_ENROLLMENT_STATUSES[number];
 
 /**
+ * Non-starter statuses: student enrolled but never attended.
+ * Match case-insensitively against enrollmentStatus.
+ */
+export const NON_STARTER_STATUSES = [
+  'Non-Starter',
+  'No Show',
+  'Never Attended',
+  'Non Starter'
+] as const;
+
+/**
+ * Withdrawal / unenrollment statuses: student left or was removed.
+ * "Unenrolled" and "Unenrolled After Count Day" are the primary attrition
+ * statuses in the CHE Airtable data.
+ * Match case-insensitively against enrollmentStatus.
+ */
+export const WITHDRAWAL_STATUSES = [
+  'Unenrolled',
+  'Unenrolled After Count Day',
+  'Withdrew',
+  'Withdrawn',
+  'Dropped',
+  'Dropped Out',
+  'Transferred',
+  'Transferred Out',
+  'Disenrolled',
+  'Expelled',
+  'Inactive'
+] as const;
+
+export function isNonStarterStatus(status: string): boolean {
+  const lower = status.toLowerCase().trim();
+  return (NON_STARTER_STATUSES as readonly string[]).some(
+    s => lower === s.toLowerCase()
+  );
+}
+
+export function isWithdrawalStatus(status: string): boolean {
+  const lower = status.toLowerCase().trim();
+  return (WITHDRAWAL_STATUSES as readonly string[]).some(
+    s => lower === s.toLowerCase()
+  );
+}
+
+/**
  * Helper Functions
  */
 export function normalizeString(str: string): string {

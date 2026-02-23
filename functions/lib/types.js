@@ -1,6 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ACTIVE_ENROLLMENT_STATUSES = void 0;
+exports.WITHDRAWAL_STATUSES = exports.NON_STARTER_STATUSES = exports.ACTIVE_ENROLLMENT_STATUSES = void 0;
+exports.isNonStarterStatus = isNonStarterStatus;
+exports.isWithdrawalStatus = isWithdrawalStatus;
 exports.normalizeString = normalizeString;
 exports.formatDate = formatDate;
 exports.createStudentKey = createStudentKey;
@@ -16,6 +18,43 @@ exports.ACTIVE_ENROLLMENT_STATUSES = [
     'Enrolled After Count Day (no funding)',
     'Waitlist'
 ];
+/**
+ * Non-starter statuses: student enrolled but never attended.
+ * Match case-insensitively against enrollmentStatus.
+ */
+exports.NON_STARTER_STATUSES = [
+    'Non-Starter',
+    'No Show',
+    'Never Attended',
+    'Non Starter'
+];
+/**
+ * Withdrawal / unenrollment statuses: student left or was removed.
+ * "Unenrolled" and "Unenrolled After Count Day" are the primary attrition
+ * statuses in the CHE Airtable data.
+ * Match case-insensitively against enrollmentStatus.
+ */
+exports.WITHDRAWAL_STATUSES = [
+    'Unenrolled',
+    'Unenrolled After Count Day',
+    'Withdrew',
+    'Withdrawn',
+    'Dropped',
+    'Dropped Out',
+    'Transferred',
+    'Transferred Out',
+    'Disenrolled',
+    'Expelled',
+    'Inactive'
+];
+function isNonStarterStatus(status) {
+    const lower = status.toLowerCase().trim();
+    return exports.NON_STARTER_STATUSES.some(s => lower === s.toLowerCase());
+}
+function isWithdrawalStatus(status) {
+    const lower = status.toLowerCase().trim();
+    return exports.WITHDRAWAL_STATUSES.some(s => lower === s.toLowerCase());
+}
 /**
  * Helper Functions
  */

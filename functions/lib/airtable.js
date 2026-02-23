@@ -472,12 +472,22 @@ async function syncAirtableData(db, token, targetSchoolYear) {
                 : new Set();
             // Sanitize document ID: replace forward slashes to prevent subcollection creation
             const docId = `${year}-${key}`.replace(/\//g, '-');
+            // Derive attrition flags from enrollment status
+            const status = student.enrollmentStatus || '';
+            const isNonStarter = (0, types_1.isNonStarterStatus)(status);
+            const isWithdrawal = (0, types_1.isWithdrawalStatus)(status);
+            // attendedAtLeastOnce: false for non-starters, true for everyone else
+            const attendedAtLeastOnce = !isNonStarter;
+            // withdrawalDate: use enrolled date as proxy for withdrawal students
+            // (exact withdrawal date not available from Airtable)
+            const withdrawalDate = isWithdrawal ? (student.enrolledDate || new Date().toISOString().split('T')[0]) : null;
             const fullStudent = {
                 id: docId,
                 ...student,
                 isReturningStudent: studentYears.has(priorYear),
                 isReturningCampus: campusYears.has(priorYear),
-                attendedAtLeastOnce: true, // Default to true; refine with attendance data later
+                attendedAtLeastOnce,
+                withdrawalDate,
                 syncedAt: new Date().toISOString()
             };
             pendingWrites.push({

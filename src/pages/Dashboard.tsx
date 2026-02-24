@@ -46,18 +46,18 @@ export function DashboardPage() {
   const previousSnapshot = yoyData?.snapshots?.[previousYear];
   const pm = previousSnapshot?.metrics;
 
-  // Calculate ERBOCES revenue — use stored total for past years, projection for current/future
-  const storedFunding = resolveFundingTotal(settings.fundingByYear?.[selectedYear]);
-  const projectedRevenue = settings.erbocesPerStudentCost * m.totalEnrollment;
-  const erbocesRevenue = storedFunding ?? projectedRevenue;
+  // Calculate ERBOCES revenue from per-year funding data
+  const yearFundingEntry = settings.fundingByYear?.[selectedYear];
+  const storedFunding = resolveFundingTotal(yearFundingEntry);
+  const erbocesRevenue = storedFunding ?? 0;
   const isActualFunding = storedFunding != null;
+  const yearFundingObj = yearFundingEntry != null && typeof yearFundingEntry === 'object'
+    ? yearFundingEntry : null;
 
   const previousStoredFunding = previousYear
     ? resolveFundingTotal(settings.fundingByYear?.[previousYear])
     : undefined;
-  const previousRevenue = pm
-    ? (previousStoredFunding ?? settings.erbocesPerStudentCost * pm.totalEnrollment)
-    : undefined;
+  const previousRevenue = previousStoredFunding ?? undefined;
 
   return (
     <div className="space-y-6">
@@ -116,10 +116,11 @@ export function DashboardPage() {
               {formatCurrency(erbocesRevenue)}
             </p>
             <p className="text-sm text-muted-foreground mt-2">
-              {isActualFunding
-                ? 'Actual total funding'
-                : `${m.totalEnrollment.toLocaleString()} students × $${settings.erbocesPerStudentCost.toLocaleString()}/student`
-              }
+              {isActualFunding && yearFundingObj
+                ? `${yearFundingObj.students.toLocaleString()} students × $${yearFundingObj.perStudentCost.toLocaleString()}/student`
+                : isActualFunding
+                  ? 'Total funding'
+                  : 'No funding data — configure in Admin'}
             </p>
             {previousRevenue && (
               <p className="text-xs text-muted-foreground mt-1">

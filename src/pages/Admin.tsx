@@ -32,7 +32,6 @@ export function AdminPage() {
 
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
-  const [erbocesInput, setErbocesInput] = useState('');
   const [fundingInputs, setFundingInputs] = useState<Record<string, { students: string; perStudentCost: string }>>({});
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
@@ -72,7 +71,6 @@ export function AdminPage() {
     mutationFn: updateSettings,
     onSuccess: () => {
       toast.success('Settings updated');
-      setErbocesInput('');
     },
     onError: (error) => {
       toast.error('Failed to update settings: ' + (error as Error).message);
@@ -141,13 +139,6 @@ export function AdminPage() {
     e.preventDefault();
     if (newUserEmail) {
       addUserMutation.mutate({ email: newUserEmail, isAdmin: newUserIsAdmin });
-    }
-  };
-
-  const handleUpdateErboces = () => {
-    const value = parseFloat(erbocesInput);
-    if (!isNaN(value) && value > 0) {
-      settingsMutation.mutate({ erbocesPerStudentCost: value });
     }
   };
 
@@ -231,45 +222,17 @@ export function AdminPage() {
         </CardContent>
       </Card>
 
-      {/* ERBOCES Settings */}
+      {/* Funding Settings */}
       <Card>
         <CardHeader>
           <CardTitle>Funding Settings</CardTitle>
           <CardDescription>
-            Configure per-student cost for projections and record actual total funding per year
+            Enter the number of students and per-student cost for each year. Total funding is calculated automatically.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="flex gap-4 items-end">
-            <div className="space-y-2">
-              <Label htmlFor="erboces">Per-Student Cost ($)</Label>
-              <Input
-                id="erboces"
-                type="number"
-                placeholder="11380"
-                value={erbocesInput}
-                onChange={(e) => setErbocesInput(e.target.value)}
-                className="w-40"
-              />
-            </div>
-            <Button
-              onClick={handleUpdateErboces}
-              disabled={settingsMutation.isPending || !erbocesInput}
-            >
-              Update
-            </Button>
-          </div>
-
+        <CardContent>
           {settings && (
-            <>
-              <Separator />
-              <div className="space-y-4">
-                <div>
-                  <h3 className="text-sm font-semibold">Funding by Year</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Enter the number of students and per-student cost for each year. Total funding is calculated automatically.
-                  </p>
-                </div>
+            <div className="space-y-4">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -312,7 +275,7 @@ export function AdminPage() {
                           <TableCell>
                             <Input
                               type="number"
-                              placeholder={savedObj ? String(savedObj.perStudentCost) : String(settings.erbocesPerStudentCost)}
+                              placeholder={savedObj ? String(savedObj.perStudentCost) : '$ per student'}
                               value={input?.perStudentCost || ''}
                               onChange={(e) => setFundingInputs(prev => ({
                                 ...prev,
@@ -338,8 +301,7 @@ export function AdminPage() {
                     })}
                   </TableBody>
                 </Table>
-              </div>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>

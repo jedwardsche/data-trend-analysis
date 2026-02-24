@@ -5,7 +5,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EnrollmentTimeline } from '@/components/charts/EnrollmentTimeline';
 import { useTimelineData } from '@/hooks/useDashboardData';
-import { formatNumber } from '@/lib/formatters';
+import { formatNumber, formatDate } from '@/lib/formatters';
 import {
   Table,
   TableBody,
@@ -87,12 +87,15 @@ export function TimelinePage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Weeks Tracked
+              Date Range
             </CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">
-              {timeline.length}
+              {timeline.length} weeks
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {formatDate(timeline[0].weekStart)} – {formatDate(timeline[timeline.length - 1].weekStart)}
             </p>
           </CardContent>
         </Card>

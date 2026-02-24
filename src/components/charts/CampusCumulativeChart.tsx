@@ -11,14 +11,7 @@ import {
 } from 'recharts';
 import type { EnrollmentWeek } from '@/types';
 import { formatNumber } from '@/lib/formatters';
-
-const YEAR_COLORS = [
-  'var(--chart-1)',
-  'var(--chart-2)',
-  'var(--chart-3)',
-  'var(--chart-4)',
-  'var(--chart-5)',
-];
+import { getYearColor } from '@/lib/year-colors';
 
 interface CampusCumulativeChartProps {
   timelines: Record<string, EnrollmentWeek[]>;
@@ -104,12 +97,12 @@ export function CampusCumulativeChart({
             labelFormatter={(label) => `Week ${label}`}
           />
           <Legend />
-          {years.map((year, index) => (
+          {years.map((year) => (
             <Line
               key={year}
               type="monotone"
               dataKey={year}
-              stroke={YEAR_COLORS[index % YEAR_COLORS.length]}
+              stroke={getYearColor(year)}
               strokeWidth={2}
               dot={false}
               connectNulls

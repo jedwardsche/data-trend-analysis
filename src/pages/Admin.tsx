@@ -18,7 +18,7 @@ import { RefreshCw, UserPlus, Trash2, Download, FileText, CheckCircle2, XCircle,
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { triggerManualSync, updateSettings, manageAllowedUsers, exportPDF, exportCSV } from '@/lib/functions';
 import { useOverviewData } from '@/hooks/useDashboardData';
-import { formatCurrency, formatNumber } from '@/lib/formatters';
+import { formatCurrency, resolveFundingTotal } from '@/lib/formatters';
 import { toast } from 'sonner';
 import type { AllowedUser } from '@/types';
 
@@ -33,8 +33,7 @@ export function AdminPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
   const [erbocesInput, setErbocesInput] = useState('');
-  const [fundingInputs, setFundingInputs] = useState<Record<string, string>>({});
-  const [projectedStudentsInput, setProjectedStudentsInput] = useState('');
+  const [fundingInputs, setFundingInputs] = useState<Record<string, { students: string; perStudentCost: string }>>({});
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch settings via overview data
@@ -152,24 +151,17 @@ export function AdminPage() {
     }
   };
 
-  const handleSaveProjectedStudents = () => {
-    const value = parseInt(projectedStudentsInput, 10);
-    if (!isNaN(value) && value > 0) {
-      settingsMutation.mutate({ projectedStudents: value });
-      setProjectedStudentsInput('');
-    }
-  };
-
   const handleSaveFunding = (year: string) => {
-    const raw = fundingInputs[year];
-    if (!raw) return;
-    const value = parseFloat(raw);
-    if (isNaN(value) || value < 0) return;
+    const input = fundingInputs[year];
+    if (!input) return;
+    const students = parseInt(input.students, 10);
+    const perStudentCost = parseFloat(input.perStudentCost);
+    if (isNaN(students) || students < 0 || isNaN(perStudentCost) || perStudentCost < 0) return;
 
     const existingFunding = settings?.fundingByYear || {};
-    const updatedFunding = { ...existingFunding, [year]: value };
+    const updatedFunding = { ...existingFunding, [year]: { students, perStudentCost } };
     settingsMutation.mutate({ fundingByYear: updatedFunding });
-    setFundingInputs(prev => ({ ...prev, [year]: '' }));
+    setFundingInputs(prev => ({ ...prev, [year]: { students: '', perStudentCost: '' } }));
   };
 
   const users = usersData?.users || [];
@@ -273,122 +265,84 @@ export function AdminPage() {
               <Separator />
               <div className="space-y-4">
                 <div>
-                  <h3 className="text-sm font-semibold">Total Funding by Year</h3>
+                  <h3 className="text-sm font-semibold">Funding by Year</h3>
                   <p className="text-xs text-muted-foreground">
-                    Enter actual total funding for past years. Current/future years use per-student cost × enrollment as a projection.
+                    Enter the number of students and per-student cost for each year. Total funding is calculated automatically.
                   </p>
                 </div>
-                <div className="space-y-3">
-                  {settings.activeSchoolYears.map(year => {
-                    const savedAmount = settings.fundingByYear?.[year];
-                    const isCurrent = year === settings.currentSchoolYear;
-                    const yearIndex = settings.activeSchoolYears.indexOf(year);
-                    const currentIndex = settings.activeSchoolYears.indexOf(settings.currentSchoolYear);
-                    const isPastYear = yearIndex < currentIndex;
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-28">Year</TableHead>
+                      <TableHead>Students</TableHead>
+                      <TableHead>Per-Student Cost</TableHead>
+                      <TableHead className="text-right">Total Funding</TableHead>
+                      <TableHead className="w-16"></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {settings.activeSchoolYears.map(year => {
+                      const saved = settings.fundingByYear?.[year];
+                      const savedObj = saved != null && typeof saved === 'object' ? saved : null;
+                      const savedTotal = resolveFundingTotal(saved);
+                      const isCurrent = year === settings.currentSchoolYear;
+                      const input = fundingInputs[year];
+                      const hasInput = input?.students || input?.perStudentCost;
 
-                    return (
-                      <div key={year} className="flex items-center gap-4">
-                        <div className="w-20 shrink-0">
-                          <span className="text-sm font-medium">{year}</span>
-                          {isCurrent && (
-                            <Badge variant="outline" className="ml-1 text-[10px] py-0">Current</Badge>
-                          )}
-                        </div>
-                        {isPastYear ? (
-                          <>
-                            <div className="flex gap-2 items-end flex-1">
-                              <Input
-                                type="number"
-                                placeholder={savedAmount ? formatCurrency(savedAmount) : 'Enter total funding'}
-                                value={fundingInputs[year] || ''}
-                                onChange={(e) => setFundingInputs(prev => ({ ...prev, [year]: e.target.value }))}
-                                className="w-48"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => handleSaveFunding(year)}
-                                disabled={settingsMutation.isPending || !fundingInputs[year]}
-                              >
-                                Save
-                              </Button>
-                            </div>
-                            {savedAmount != null && !fundingInputs[year] && (
-                              <span className="text-sm text-success font-medium">
-                                {formatCurrency(savedAmount)}
-                              </span>
+                      return (
+                        <TableRow key={year}>
+                          <TableCell className="font-medium">
+                            {year}
+                            {isCurrent && (
+                              <Badge variant="outline" className="ml-1 text-[10px] py-0">Current</Badge>
                             )}
-                          </>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            Projected from enrollment × per-student cost
-                            {savedAmount != null && (
-                              <span className="ml-2 text-foreground font-medium">
-                                (Override: {formatCurrency(savedAmount)})
-                              </span>
-                            )}
-                          </span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              placeholder={savedObj ? String(savedObj.students) : '# students'}
+                              value={input?.students || ''}
+                              onChange={(e) => setFundingInputs(prev => ({
+                                ...prev,
+                                [year]: { ...prev[year], students: e.target.value, perStudentCost: prev[year]?.perStudentCost || '' }
+                              }))}
+                              className="w-28"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              placeholder={savedObj ? String(savedObj.perStudentCost) : String(settings.erbocesPerStudentCost)}
+                              value={input?.perStudentCost || ''}
+                              onChange={(e) => setFundingInputs(prev => ({
+                                ...prev,
+                                [year]: { ...prev[year], perStudentCost: e.target.value, students: prev[year]?.students || '' }
+                              }))}
+                              className="w-32"
+                            />
+                          </TableCell>
+                          <TableCell className="text-right font-semibold text-success">
+                            {savedTotal != null ? formatCurrency(savedTotal) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              size="sm"
+                              onClick={() => handleSaveFunding(year)}
+                              disabled={settingsMutation.isPending || !hasInput}
+                            >
+                              Save
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
               </div>
             </>
           )}
         </CardContent>
       </Card>
-
-      {/* Estimated Funding */}
-      {settings && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Estimated Funding — {settings.currentSchoolYear}</CardTitle>
-            <CardDescription>
-              Projected funding based on per-student cost × projected students
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Per-Student Cost</p>
-                <p className="text-xl font-semibold">
-                  {formatCurrency(settings.erbocesPerStudentCost)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Projected Students</p>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    placeholder={settings.projectedStudents ? String(settings.projectedStudents) : 'Enter count'}
-                    value={projectedStudentsInput}
-                    onChange={(e) => setProjectedStudentsInput(e.target.value)}
-                    className="w-32"
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleSaveProjectedStudents}
-                    disabled={settingsMutation.isPending || !projectedStudentsInput}
-                  >
-                    Save
-                  </Button>
-                  {settings.projectedStudents != null && !projectedStudentsInput && (
-                    <span className="text-xl font-semibold">{formatNumber(settings.projectedStudents)}</span>
-                  )}
-                </div>
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm text-muted-foreground">Estimated Total Funding</p>
-                <p className="text-xl font-semibold text-success">
-                  {settings.projectedStudents
-                    ? formatCurrency(settings.erbocesPerStudentCost * settings.projectedStudents)
-                    : '—'}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Exports */}
       <Card>

@@ -72,3 +72,15 @@ export function formatGrowthText(current: number, previous: number): string {
   if (current < previous) return 'decreased';
   return 'unchanged';
 }
+
+/**
+ * Resolve a fundingByYear entry to a total dollar amount.
+ * Handles both legacy format (plain number) and new format ({ students, perStudentCost }).
+ */
+export function resolveFundingTotal(
+  entry: number | { students: number; perStudentCost: number } | undefined
+): number | undefined {
+  if (entry == null) return undefined;
+  if (typeof entry === 'number') return entry;
+  return entry.students * entry.perStudentCost;
+}

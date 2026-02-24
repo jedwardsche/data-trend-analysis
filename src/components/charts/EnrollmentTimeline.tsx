@@ -39,16 +39,16 @@ export function EnrollmentTimeline({ timeline, showCumulative = true }: Enrollme
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
                 />
                 <YAxis
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'var(--muted-foreground)' }}
                   tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'var(--background)',
+                    border: '1px solid var(--border)',
                     borderRadius: '8px'
                   }}
                   formatter={(value: number, name: string) => [
@@ -59,8 +59,8 @@ export function EnrollmentTimeline({ timeline, showCumulative = true }: Enrollme
                 <Area
                   type="monotone"
                   dataKey="cumulative"
-                  stroke="hsl(var(--chart-1))"
-                  fill="hsl(var(--chart-1))"
+                  stroke="var(--chart-1)"
+                  fill="var(--chart-1)"
                   fillOpacity={0.2}
                 />
               </AreaChart>
@@ -69,16 +69,16 @@ export function EnrollmentTimeline({ timeline, showCumulative = true }: Enrollme
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="date"
-                  tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                  tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
                 />
                 <YAxis
-                  tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                  tick={{ fill: 'var(--muted-foreground)' }}
                   tickFormatter={(value) => formatNumber(value)}
                 />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: 'hsl(var(--background))',
-                    border: '1px solid hsl(var(--border))',
+                    backgroundColor: 'var(--background)',
+                    border: '1px solid var(--border)',
                     borderRadius: '8px'
                   }}
                   formatter={(value: number) => [formatNumber(value), 'New Enrollments']}
@@ -86,9 +86,9 @@ export function EnrollmentTimeline({ timeline, showCumulative = true }: Enrollme
                 <Line
                   type="monotone"
                   dataKey="new"
-                  stroke="hsl(var(--chart-2))"
+                  stroke="var(--chart-2)"
                   strokeWidth={2}
-                  dot={{ fill: 'hsl(var(--chart-2))' }}
+                  dot={{ fill: 'var(--chart-2)' }}
                 />
               </LineChart>
             )}

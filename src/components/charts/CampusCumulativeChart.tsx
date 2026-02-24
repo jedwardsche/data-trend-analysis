@@ -13,11 +13,11 @@ import type { EnrollmentWeek } from '@/types';
 import { formatNumber } from '@/lib/formatters';
 
 const YEAR_COLORS = [
-  'hsl(var(--chart-1))',
-  'hsl(var(--chart-2))',
-  'hsl(var(--chart-3))',
-  'hsl(var(--chart-4))',
-  'hsl(var(--chart-5))',
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 interface CampusCumulativeChartProps {
@@ -78,23 +78,23 @@ export function CampusCumulativeChart({
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
             dataKey="week"
-            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
             label={{
               value: 'Week',
               position: 'insideBottom',
               offset: -5,
-              fill: 'hsl(var(--muted-foreground))',
+              fill: 'var(--muted-foreground)',
               fontSize: 12
             }}
           />
           <YAxis
-            tick={{ fill: 'hsl(var(--muted-foreground))' }}
+            tick={{ fill: 'var(--muted-foreground)' }}
             tickFormatter={(value) => formatNumber(value)}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: 'hsl(var(--background))',
-              border: '1px solid hsl(var(--border))',
+              backgroundColor: 'var(--background)',
+              border: '1px solid var(--border)',
               borderRadius: '8px'
             }}
             formatter={(value: number, name: string) => [

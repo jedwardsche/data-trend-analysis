@@ -70,6 +70,7 @@ export interface AppSettings {
   currentSchoolYear: string;
   activeSchoolYears: string[];
   fundingByYear?: Record<string, number>;
+  projectedStudents?: number;
 }
 
 /**

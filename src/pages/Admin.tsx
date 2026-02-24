@@ -18,7 +18,7 @@ import { RefreshCw, UserPlus, Trash2, Download, FileText, CheckCircle2, XCircle,
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { triggerManualSync, updateSettings, manageAllowedUsers, exportPDF, exportCSV } from '@/lib/functions';
 import { useOverviewData } from '@/hooks/useDashboardData';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, formatNumber } from '@/lib/formatters';
 import { toast } from 'sonner';
 import type { AllowedUser } from '@/types';
 
@@ -34,6 +34,7 @@ export function AdminPage() {
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
   const [erbocesInput, setErbocesInput] = useState('');
   const [fundingInputs, setFundingInputs] = useState<Record<string, string>>({});
+  const [projectedStudentsInput, setProjectedStudentsInput] = useState('');
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch settings via overview data
@@ -148,6 +149,14 @@ export function AdminPage() {
     const value = parseFloat(erbocesInput);
     if (!isNaN(value) && value > 0) {
       settingsMutation.mutate({ erbocesPerStudentCost: value });
+    }
+  };
+
+  const handleSaveProjectedStudents = () => {
+    const value = parseInt(projectedStudentsInput, 10);
+    if (!isNaN(value) && value > 0) {
+      settingsMutation.mutate({ projectedStudents: value });
+      setProjectedStudentsInput('');
     }
   };
 
@@ -328,6 +337,58 @@ export function AdminPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Estimated Funding */}
+      {settings && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Estimated Funding — {settings.currentSchoolYear}</CardTitle>
+            <CardDescription>
+              Projected funding based on per-student cost × projected students
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Per-Student Cost</p>
+                <p className="text-xl font-semibold">
+                  {formatCurrency(settings.erbocesPerStudentCost)}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Projected Students</p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    placeholder={settings.projectedStudents ? String(settings.projectedStudents) : 'Enter count'}
+                    value={projectedStudentsInput}
+                    onChange={(e) => setProjectedStudentsInput(e.target.value)}
+                    className="w-32"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleSaveProjectedStudents}
+                    disabled={settingsMutation.isPending || !projectedStudentsInput}
+                  >
+                    Save
+                  </Button>
+                  {settings.projectedStudents != null && !projectedStudentsInput && (
+                    <span className="text-xl font-semibold">{formatNumber(settings.projectedStudents)}</span>
+                  )}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">Estimated Total Funding</p>
+                <p className="text-xl font-semibold text-success">
+                  {settings.projectedStudents
+                    ? formatCurrency(settings.erbocesPerStudentCost * settings.projectedStudents)
+                    : '—'}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Exports */}
       <Card>

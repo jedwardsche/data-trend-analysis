@@ -1,1 +1,0 @@
-import{j as a}from"./query-PEscxNU0.js";import{a as o}from"./index-BhTo05Ny.js";function r({className:t,...e}){return a.jsx("div",{"data-slot":"skeleton",className:o("bg-accent animate-pulse rounded-md",t),...e})}export{r as S};

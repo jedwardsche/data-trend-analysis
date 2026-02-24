@@ -4,7 +4,7 @@ import { RetentionGauge } from '@/components/charts/RetentionGauge';
 import { GrowthBreakdown } from '@/components/charts/GrowthBreakdown';
 import { useOverviewData, useYoYData } from '@/hooks/useDashboardData';
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatCurrency } from '@/lib/formatters';
+import { formatCurrency, resolveFundingTotal } from '@/lib/formatters';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface OutletContext {
@@ -47,12 +47,14 @@ export function DashboardPage() {
   const pm = previousSnapshot?.metrics;
 
   // Calculate ERBOCES revenue — use stored total for past years, projection for current/future
-  const storedFunding = settings.fundingByYear?.[selectedYear];
+  const storedFunding = resolveFundingTotal(settings.fundingByYear?.[selectedYear]);
   const projectedRevenue = settings.erbocesPerStudentCost * m.totalEnrollment;
   const erbocesRevenue = storedFunding ?? projectedRevenue;
   const isActualFunding = storedFunding != null;
 
-  const previousStoredFunding = previousYear ? settings.fundingByYear?.[previousYear] : undefined;
+  const previousStoredFunding = previousYear
+    ? resolveFundingTotal(settings.fundingByYear?.[previousYear])
+    : undefined;
   const previousRevenue = pm
     ? (previousStoredFunding ?? settings.erbocesPerStudentCost * pm.totalEnrollment)
     : undefined;

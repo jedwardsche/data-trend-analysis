@@ -136,6 +136,12 @@
   --chart-3: #E85A33;
   --chart-4: #6B9A94;
   --chart-5: #249280;
+  /* Year-over-year enrollment line colors */
+  --year-2023-24: #D82332;
+  --year-2024-25: #E85A33;
+  --year-2025-26: #249280;
+  --year-2026-27: #3566A8;
+  --year-default: #6B9A94;
   /* Sidebar */
   --sidebar: #FFFFFF;
   --sidebar-foreground: #1F4F48;
@@ -183,6 +189,12 @@
   --chart-3: #F07A5A;
   --chart-4: #8BABA6;
   --chart-5: #3BB5A0;
+  /* Year-over-year enrollment line colors (dark mode) */
+  --year-2023-24: #E8434F;
+  --year-2024-25: #F07A5A;
+  --year-2025-26: #3BB5A0;
+  --year-2026-27: #5A8FD4;
+  --year-default: #8BABA6;
   /* Sidebar */
   --sidebar: #162F2B;
   --sidebar-foreground: #E8EDE9;

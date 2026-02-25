@@ -71,6 +71,7 @@ export function AdminPage() {
     mutationFn: updateSettings,
     onSuccess: () => {
       toast.success('Settings updated');
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
     onError: (error) => {
       toast.error('Failed to update settings: ' + (error as Error).message);

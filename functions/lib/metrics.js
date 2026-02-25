@@ -153,9 +153,27 @@ async function calculateSnapshot(db, schoolYear, settings) {
     return snapshot;
 }
 /**
+ * Parse school year label into boundary dates.
+ * Matches Python _parse_school_year_boundaries: "23-24" → Jan 1, 2023 – Dec 31, 2023.
+ * All enrollment dates outside these boundaries are clamped to the nearest edge.
+ */
+function parseSchoolYearBoundaries(schoolYear) {
+    const firstPart = schoolYear.split('-')[0].trim();
+    let firstYear = parseInt(firstPart, 10);
+    if (firstYear < 100)
+        firstYear += 2000;
+    return {
+        start: new Date(firstYear, 0, 1), // Jan 1
+        end: new Date(firstYear, 11, 31) // Dec 31
+    };
+}
+/**
  * Calculate enrollment timeline (weekly enrollments)
  */
 async function calculateEnrollmentTimeline(db, schoolYear) {
+    // Parse school year boundaries for date clamping
+    // Matches Python: "23-24" → Jan 1 2023 – Dec 31 2023
+    const boundaries = parseSchoolYearBoundaries(schoolYear);
     // Fetch all students for this school year
     const studentsRef = db.collection('students');
     const studentDocs = await studentsRef
@@ -167,7 +185,16 @@ async function calculateEnrollmentTimeline(db, schoolYear) {
     // Group students by enrollment week
     const weeklyData = new Map();
     for (const student of students) {
-        const enrollDate = (0, date_fns_1.parseISO)(student.enrolledDate);
+        let enrollDate = (0, date_fns_1.parseISO)(student.enrolledDate);
+        // Clamp to school year boundaries (matching Python _fetch_enrolled_by_school_year)
+        // Ensures out-of-range dates (e.g., 23-24 data migration dates from 2024)
+        // are clamped to the boundary rather than lost or misplaced
+        if (enrollDate < boundaries.start) {
+            enrollDate = boundaries.start;
+        }
+        else if (enrollDate > boundaries.end) {
+            enrollDate = boundaries.end;
+        }
         const weekStartDate = (0, date_fns_1.startOfWeek)(enrollDate, { weekStartsOn: 0 });
         const weekKey = (0, date_fns_1.format)(weekStartDate, 'yyyy-MM-dd');
         if (!weeklyData.has(weekKey)) {

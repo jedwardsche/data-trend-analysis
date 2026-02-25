@@ -120,12 +120,16 @@ export interface EnrollmentWeek {
         cumulativeEnrollment: number;
     }>;
 }
+export interface YearFunding {
+    students: number;
+    perStudentCost: number;
+}
 export interface AppSettings {
     erbocesPerStudentCost: number;
     countDayDate: string;
     currentSchoolYear: string;
     activeSchoolYears: string[];
-    fundingByYear?: Record<string, number>;
+    fundingByYear?: Record<string, number | YearFunding>;
 }
 export interface AllowedUser {
     email: string;

@@ -227,7 +227,7 @@ function processStudents(
   records: AirtableRecord[],
   baseConfig: AirtableBaseConfig,
   targetYear: string,
-  studentTruthLookup?: Map<string, string>
+  studentTruthLookup?: Map<string, { date: string; status: string }>
 ): Map<string, Partial<StudentRecord>> {
   const students = new Map<string, Partial<StudentRecord>>();
   const fields = baseConfig.tables.students.fields as unknown as Record<string, string>;
@@ -252,18 +252,28 @@ function processStudents(
       const rawStatus = getFieldValue(record, fields.enrollmentStatus);
       const enrollmentStatus = getLastUniqueValue(rawStatus);
 
-      // Look up year-specific Date Enrolled from Student Truth table
+      // Look up year-specific Date Enrolled + Status from Student Truth table
       let enrollmentDate = '';
+      let truthStatus = '';
       if (studentTruthLookup && studentTruthLookup.size > 0) {
         const displayName = `${firstName} ${lastName}`;
         const lookupKey = `${normalizeString(displayName)}|${targetYear}`;
-        enrollmentDate = studentTruthLookup.get(lookupKey) || '';
+        const truthData = studentTruthLookup.get(lookupKey);
+        if (truthData) {
+          enrollmentDate = truthData.date;
+          truthStatus = truthData.status;
+        }
       }
       // Fallback: Students table "Enrollment Date" → record createdTime
       if (!enrollmentDate) {
         enrollmentDate = getFieldValue(record, 'Enrollment Date') ||
           (record.createdTime ? record.createdTime : '');
       }
+
+      // Use Student Truth enrollment status as fallback when Students table status is empty
+      // This is critical for older years (e.g. 23-24) where Students table status is often blank
+      // but Student Truth has the accurate per-year status (matching Python's direct query approach)
+      const finalEnrollmentStatus = enrollmentStatus || truthStatus;
 
       students.set(studentKey, {
         studentKey,
@@ -274,7 +284,7 @@ function processStudents(
         campus,
         mcLeader,
         campusKey: campus ? createCampusKey(campus, mcLeader) : '',
-        enrollmentStatus,
+        enrollmentStatus: finalEnrollmentStatus,
         enrolledDate: formatDate(enrollmentDate),
         isVerifiedTransfer: false,
         isGraduate: false,
@@ -332,8 +342,9 @@ export async function syncAirtableData(
 
       console.log(`  Fetched ${records.length} total student records`);
 
-      // Fetch Student Truth records for year-specific enrollment dates
-      const studentTruthLookup = new Map<string, string>(); // key: "normalizedName|year" → dateEnrolled
+      // Fetch Student Truth records for year-specific enrollment dates + statuses
+      // key: "normalizedName|year" → { date, status }
+      const studentTruthLookup = new Map<string, { date: string; status: string }>();
       if (base.tables.studentTruth) {
         console.log(`  Fetching Student Truth records from ${base.label}...`);
         const truthRecords = await fetchAirtableRecords(
@@ -390,7 +401,7 @@ export async function syncAirtableData(
             }
 
             if (effectiveDate) {
-              studentTruthLookup.set(lookupKey, effectiveDate);
+              studentTruthLookup.set(lookupKey, { date: effectiveDate, status: status || '' });
             }
           }
         }

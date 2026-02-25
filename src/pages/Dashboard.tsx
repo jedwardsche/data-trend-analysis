@@ -46,6 +46,11 @@ export function DashboardPage() {
   const previousSnapshot = yoyData?.snapshots?.[previousYear];
   const pm = previousSnapshot?.metrics;
 
+  // Derive campus counts from byCampus data
+  const campusList = Object.values(snapshot.byCampus || {});
+  const returningCampusCount = campusList.filter(c => c.returningStudents > 0).length;
+  const newCampusCount = campusList.filter(c => c.returningStudents === 0).length;
+
   // Calculate ERBOCES revenue from per-year funding data
   const yearFundingEntry = settings.fundingByYear?.[selectedYear];
   const storedFunding = resolveFundingTotal(yearFundingEntry);
@@ -95,15 +100,27 @@ export function DashboardPage() {
       </div>
 
       {/* Second Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <RetentionGauge
           rate={m.retentionRate}
           returningStudents={m.returningStudents}
           eligibleStudents={pm ? pm.totalEnrollment - (pm.verifiedTransfers || 0) : m.returningStudents}
         />
         <GrowthBreakdown
-          internalGrowth={m.internalGrowth}
-          newCampusGrowth={m.newCampusGrowth}
+          title="Student Growth"
+          returningLabel="Returning Students"
+          newLabel="New Students"
+          returningValue={m.returningStudents}
+          newValue={m.totalNewGrowth}
+          totalLabel="Total Students"
+        />
+        <GrowthBreakdown
+          title="Campus Growth"
+          returningLabel="Returning Campuses"
+          newLabel="New Campuses"
+          returningValue={returningCampusCount}
+          newValue={newCampusCount}
+          totalLabel="Total Campuses"
         />
         <Card>
           <CardHeader>

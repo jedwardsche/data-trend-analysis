@@ -9,35 +9,46 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatNumber, formatPercent } from '@/lib/formatters';
 
 interface GrowthBreakdownProps {
-  internalGrowth: number;
-  newCampusGrowth: number;
+  title: string;
+  returningLabel: string;
+  newLabel: string;
+  returningValue: number;
+  newValue: number;
+  totalLabel: string;
 }
 
 const SEGMENTS = [
-  { key: 'returning', label: 'Returning Campuses', cssVar: 'var(--chart-2)' },
-  { key: 'new', label: 'New Campuses', cssVar: 'var(--chart-3)' },
+  { key: 'returning', cssVar: 'var(--chart-2)' },
+  { key: 'new', cssVar: 'var(--chart-3)' },
 ];
 
-export function GrowthBreakdown({ internalGrowth, newCampusGrowth }: GrowthBreakdownProps) {
-  const total = internalGrowth + newCampusGrowth;
+export function GrowthBreakdown({
+  title,
+  returningLabel,
+  newLabel,
+  returningValue,
+  newValue,
+  totalLabel
+}: GrowthBreakdownProps) {
+  const total = returningValue + newValue;
 
   const data = [
     {
-      name: 'Returning Campuses',
-      value: internalGrowth,
-      percent: total > 0 ? (internalGrowth / total) * 100 : 0
+      name: returningLabel,
+      value: returningValue,
+      percent: total > 0 ? (returningValue / total) * 100 : 0
     },
     {
-      name: 'New Campuses',
-      value: newCampusGrowth,
-      percent: total > 0 ? (newCampusGrowth / total) * 100 : 0
+      name: newLabel,
+      value: newValue,
+      percent: total > 0 ? (newValue / total) * 100 : 0
     }
   ];
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Growth Breakdown</CardTitle>
+        <CardTitle>{title}</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="flex items-center gap-4">
@@ -98,7 +109,7 @@ export function GrowthBreakdown({ internalGrowth, newCampusGrowth }: GrowthBreak
               </div>
             ))}
             <div className="pt-2 border-t border-border">
-              <p className="text-sm text-muted-foreground">Total New Students</p>
+              <p className="text-sm text-muted-foreground">{totalLabel}</p>
               <p className="text-xl font-bold">{formatNumber(total)}</p>
             </div>
           </div>

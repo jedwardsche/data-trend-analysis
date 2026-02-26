@@ -45,6 +45,7 @@ export function AdminPage() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
   const [fundingInputs, setFundingInputs] = useState<Record<string, { students: string; perStudentCost: string }>>({});
+  const [nonStarterInputs, setNonStarterInputs] = useState<Record<string, string>>({});
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [exportYear, setExportYear] = useState(selectedYear);
 
@@ -161,6 +162,17 @@ export function AdminPage() {
     const updatedFunding = { ...existingFunding, [year]: { students, perStudentCost } };
     settingsMutation.mutate({ fundingByYear: updatedFunding });
     setFundingInputs(prev => ({ ...prev, [year]: { students: '', perStudentCost: '' } }));
+  };
+
+  const handleSaveNonStarters = (year: string) => {
+    const val = nonStarterInputs[year];
+    if (!val) return;
+    const count = parseInt(val, 10);
+    if (isNaN(count) || count < 0) return;
+
+    const existing = settings?.nonStartersByYear || {};
+    settingsMutation.mutate({ nonStartersByYear: { ...existing, [year]: count } });
+    setNonStarterInputs(prev => ({ ...prev, [year]: '' }));
   };
 
   const users = usersData?.users || [];
@@ -310,6 +322,72 @@ export function AdminPage() {
                   </TableBody>
                 </Table>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Manual Enrollment Metrics */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Manual Enrollment Metrics</CardTitle>
+          <CardDescription>
+            Manually set non-starters count per year. These override the calculated values on the dashboard.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {settings && (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-28">Year</TableHead>
+                  <TableHead>Non-Starters</TableHead>
+                  <TableHead className="text-right">Current Value</TableHead>
+                  <TableHead className="w-16"></TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {settings.activeSchoolYears.map(year => {
+                  const saved = settings.nonStartersByYear?.[year];
+                  const input = nonStarterInputs[year];
+                  const isCurrent = year === settings.currentSchoolYear;
+
+                  return (
+                    <TableRow key={year}>
+                      <TableCell className="font-medium">
+                        {year}
+                        {isCurrent && (
+                          <Badge variant="outline" className="ml-1 text-[10px] py-0">Current</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          type="number"
+                          placeholder={saved != null ? String(saved) : '# non-starters'}
+                          value={input || ''}
+                          onChange={(e) => setNonStarterInputs(prev => ({
+                            ...prev,
+                            [year]: e.target.value
+                          }))}
+                          className="w-36"
+                        />
+                      </TableCell>
+                      <TableCell className="text-right font-semibold">
+                        {saved != null ? saved.toLocaleString() : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          size="sm"
+                          onClick={() => handleSaveNonStarters(year)}
+                          disabled={settingsMutation.isPending || !input}
+                        >
+                          Save
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>

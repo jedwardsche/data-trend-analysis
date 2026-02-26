@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EnrollmentTimeline } from '@/components/charts/EnrollmentTimeline';
-import { useTimelineData } from '@/hooks/useDashboardData';
+import { useTimelineData, useOverviewData } from '@/hooks/useDashboardData';
 import { formatNumber, formatDate } from '@/lib/formatters';
 import {
   Table,
@@ -22,7 +22,13 @@ interface OutletContext {
 export function TimelinePage() {
   const { selectedYear } = useOutletContext<OutletContext>();
   const { data, isLoading, error } = useTimelineData(selectedYear);
+  const { data: overviewData } = useOverviewData(selectedYear);
   const [view, setView] = useState<'cumulative' | 'weekly'>('cumulative');
+
+  // Determine if this is the current/ongoing school year
+  const activeYears = overviewData?.settings?.activeSchoolYears;
+  const latestYear = activeYears ? [...activeYears].sort().pop() : undefined;
+  const enrollmentLabel = selectedYear === latestYear ? 'Current Enrollment' : 'Final Enrollment';
 
   if (isLoading) {
     return <TimelineSkeleton />;
@@ -60,7 +66,7 @@ export function TimelinePage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Final Enrollment
+              {enrollmentLabel}
             </CardTitle>
           </CardHeader>
           <CardContent>

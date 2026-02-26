@@ -64,6 +64,16 @@ export function DashboardPage() {
     : undefined;
   const previousRevenue = previousStoredFunding ?? undefined;
 
+  // Determine if this is the current/ongoing school year (latest in active list)
+  const latestYear = [...settings.activeSchoolYears].sort().pop();
+  const enrollmentLabel = selectedYear === latestYear ? 'Current Enrollment' : 'Final Enrollment';
+
+  // Funded students from admin settings
+  const fundedStudents = yearFundingObj?.students ?? null;
+
+  // Non-starters: use manual override from settings if available, otherwise snapshot
+  const nonStarters = settings.nonStartersByYear?.[selectedYear] ?? m.nonStarters;
+
   return (
     <div className="space-y-6">
       <div>
@@ -76,7 +86,7 @@ export function DashboardPage() {
       {/* Top KPIs */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
-          title="Total Enrollment"
+          title={enrollmentLabel}
           value={m.totalEnrollment}
           previousValue={pm?.totalEnrollment}
         />
@@ -97,6 +107,13 @@ export function DashboardPage() {
           previousValue={pm?.netGrowth}
           description="New students minus withdrawals"
         />
+        {fundedStudents != null && (
+          <MetricCard
+            title="Total Funded"
+            value={fundedStudents}
+            description="Funded students for this year"
+          />
+        )}
       </div>
 
       {/* Second Row */}
@@ -152,7 +169,7 @@ export function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3">
         <MetricCard
           title="Non-Starters"
-          value={m.nonStarters}
+          value={nonStarters}
           previousValue={pm?.nonStarters}
           description="Enrolled but never attended"
         />

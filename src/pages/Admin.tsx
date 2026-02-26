@@ -14,9 +14,16 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
-import { RefreshCw, UserPlus, Trash2, Download, FileText, CheckCircle2, XCircle, X } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { RefreshCw, UserPlus, Trash2, Download, CheckCircle2, XCircle, X } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { triggerManualSync, updateSettings, manageAllowedUsers, exportPDF, exportCSV } from '@/lib/functions';
+import { triggerManualSync, updateSettings, manageAllowedUsers, exportCSV } from '@/lib/functions';
 import { useOverviewData } from '@/hooks/useDashboardData';
 import { formatCurrency, resolveFundingTotal } from '@/lib/formatters';
 import { toast } from 'sonner';
@@ -39,6 +46,7 @@ export function AdminPage() {
   const [newUserIsAdmin, setNewUserIsAdmin] = useState(false);
   const [fundingInputs, setFundingInputs] = useState<Record<string, { students: string; perStudentCost: string }>>({});
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [exportYear, setExportYear] = useState(selectedYear);
 
   // Fetch settings via overview data
   const { data: overviewData } = useOverviewData(selectedYear);
@@ -111,40 +119,16 @@ export function AdminPage() {
     }
   });
 
-  // Export mutations
-  const pdfMutation = useMutation({
-    mutationFn: () => exportPDF({ schoolYear: selectedYear, reportType: 'annual' }),
-    onSuccess: (data) => {
-      // Convert base64 to blob and trigger download
-      const byteCharacters = atob(data.pdfBase64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = data.fileName;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success('PDF downloaded');
-    },
-    onError: (error) => {
-      toast.error('PDF export failed: ' + (error as Error).message);
-    }
-  });
-
+  // Export mutation
   const csvMutation = useMutation({
     mutationFn: (dataType: 'enrollment' | 'retention' | 'attendance' | 'timeline') =>
-      exportCSV({ schoolYear: selectedYear, dataType }),
+      exportCSV({ schoolYear: exportYear, dataType }),
     onSuccess: (data, dataType) => {
       const blob = new Blob([data.csv], { type: 'text/csv' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedYear}-${dataType}.csv`;
+      a.download = `${exportYear}-${dataType}.csv`;
       a.click();
       URL.revokeObjectURL(url);
       toast.success('CSV downloaded');
@@ -153,6 +137,11 @@ export function AdminPage() {
       toast.error('CSV export failed: ' + (error as Error).message);
     }
   });
+
+  // Build export year options from settings (with 2026-27 appended)
+  const exportYears = settings
+    ? [...new Set([...settings.activeSchoolYears, '2026-27'])].sort().reverse()
+    : [selectedYear];
 
   const handleAddUser = (e: React.FormEvent) => {
     e.preventDefault();
@@ -328,21 +317,27 @@ export function AdminPage() {
       {/* Exports */}
       <Card>
         <CardHeader>
-          <CardTitle>Exports</CardTitle>
-          <CardDescription>
-            Download reports and data for {selectedYear}
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Exports</CardTitle>
+              <CardDescription>
+                Download CSV data for a specific school year
+              </CardDescription>
+            </div>
+            <Select value={exportYear} onValueChange={setExportYear}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="School Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {exportYears.map(year => (
+                  <SelectItem key={year} value={year}>{year}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-wrap gap-4">
-            <Button
-              variant="outline"
-              onClick={() => pdfMutation.mutate()}
-              disabled={pdfMutation.isPending}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              {pdfMutation.isPending ? 'Generating...' : 'Annual Report (PDF)'}
-            </Button>
             <Button
               variant="outline"
               onClick={() => csvMutation.mutate('enrollment')}

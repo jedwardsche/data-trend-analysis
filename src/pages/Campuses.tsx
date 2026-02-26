@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOverviewData } from '@/hooks/useDashboardData';
 import { formatNumber, formatPercent } from '@/lib/formatters';
-import { Search, ChevronDown, ChevronRight, ArrowUpDown, Building2, Users } from 'lucide-react';
+import { Search, ChevronDown, ChevronRight, ArrowUpDown, Building2, Users, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
@@ -57,12 +57,23 @@ export function CampusesPage() {
       const direction = sortDirection === 'asc' ? 1 : -1;
 
       if (typeof aVal === 'string') {
-        return direction * aVal.localeCompare(bVal as string);
+        const cmp = aVal.localeCompare(bVal as string);
+        // When campusName is identical (e.g. all "Micro-Campus"), fall back to mcLeader
+        if (cmp === 0 && sortField === 'campusName') {
+          return direction * a.mcLeader.localeCompare(b.mcLeader);
+        }
+        return direction * cmp;
       }
       return direction * ((aVal as number) - (bVal as number));
     });
 
   const { branch, microCampus } = groupCampusesByType(allCampuses);
+
+  // Total campus count from unfiltered data (before search)
+  const allUnfiltered = Object.entries(data.snapshot.byCampus)
+    .map(([key, campus]) => ({ key, ...campus }));
+  const unfilteredGroups = groupCampusesByType(allUnfiltered);
+  const totalCampusCount = unfilteredGroups.branch.length + unfilteredGroups.microCampus.length;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -76,9 +87,14 @@ export function CampusesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">Campuses</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold">Campuses</h1>
+          <Badge variant="outline" className="text-base px-2.5 py-0.5">
+            {totalCampusCount}
+          </Badge>
+        </div>
         <p className="text-muted-foreground">
-          Campus-level metrics for {selectedYear}
+          {unfilteredGroups.branch.length} branch &middot; {unfilteredGroups.microCampus.length} micro-campus &mdash; {selectedYear}
         </p>
       </div>
 
@@ -124,11 +140,9 @@ export function CampusesPage() {
         />
       )}
 
-      {/* Micro-Campuses */}
+      {/* Micro-Campuses — nested by individual leader */}
       {microCampus.length > 0 && (
-        <CampusGroup
-          title="Micro-Campuses"
-          icon={<Users className="h-5 w-5" />}
+        <MicroCampusGroup
           campuses={microCampus}
           isOpen={microOpen}
           onToggle={() => setMicroOpen(!microOpen)}
@@ -171,23 +185,63 @@ function CampusGroup({ title, icon, campuses, isOpen, onToggle, onCampusClick }:
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="grid gap-3 pt-2 pl-8">
+        <div className="grid gap-1 pt-1 pl-8">
+          {campuses.map(campus => (
+            <CampusCard
+              key={campus.key}
+              campus={campus}
+              onClick={() => onCampusClick(campus.key)}
+            />
+          ))}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+interface MicroCampusGroupProps {
+  campuses: CampusWithKey[];
+  isOpen: boolean;
+  onToggle: () => void;
+  onCampusClick: (key: string) => void;
+}
+
+function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCampusGroupProps) {
+  const totalEnrollment = campuses.reduce((sum, c) => sum + c.totalEnrollment, 0);
+
+  return (
+    <Collapsible open={isOpen} onOpenChange={onToggle}>
+      <CollapsibleTrigger asChild>
+        <button className="flex items-center gap-3 w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors">
+          {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+          <Users className="h-5 w-5" />
+          <span className="text-lg font-semibold">Micro-Campuses</span>
+          <Badge variant="secondary" className="ml-2">{campuses.length}</Badge>
+          <span className="text-sm text-muted-foreground ml-auto">
+            {formatNumber(totalEnrollment)} total enrolled
+          </span>
+        </button>
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className="grid gap-1 pt-1 pl-8">
           {campuses.map(campus => (
             <Card
               key={campus.key}
               className="cursor-pointer hover:bg-muted/50 transition-colors"
               onClick={() => onCampusClick(campus.key)}
             >
-              <CardContent className="p-4">
+              <CardContent className="px-3 py-1">
                 <div className="flex items-center justify-between">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium truncate">{campus.campusName}</p>
+                    <div className="flex items-center gap-1.5">
+                      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <p className="font-medium text-sm truncate">
+                        {campus.mcLeader || 'Unknown Leader'}
+                      </p>
                       <CampusSizeBadge enrollment={campus.totalEnrollment} />
                     </div>
-                    <p className="text-sm text-muted-foreground">{campus.mcLeader}</p>
                   </div>
-                  <div className="flex items-center gap-6 text-sm shrink-0">
+                  <div className="flex items-center gap-5 text-sm shrink-0">
                     <div className="text-right">
                       <p className="text-muted-foreground">Enrolled</p>
                       <p className="font-semibold">{formatNumber(campus.totalEnrollment)}</p>
@@ -218,6 +272,53 @@ function CampusGroup({ title, icon, campuses, isOpen, onToggle, onCampusClick }:
         </div>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () => void }) {
+  return (
+    <Card
+      className="cursor-pointer hover:bg-muted/50 transition-colors"
+      onClick={onClick}
+    >
+      <CardContent className="px-3 py-1">
+        <div className="flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="font-medium text-sm truncate">{campus.campusName}</p>
+              <CampusSizeBadge enrollment={campus.totalEnrollment} />
+            </div>
+            {campus.mcLeader && (
+              <p className="text-xs text-muted-foreground">{campus.mcLeader}</p>
+            )}
+          </div>
+          <div className="flex items-center gap-5 text-sm shrink-0">
+            <div className="text-right">
+              <p className="text-muted-foreground">Enrolled</p>
+              <p className="font-semibold">{formatNumber(campus.totalEnrollment)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-muted-foreground">Returning</p>
+              <p className="font-semibold">{formatNumber(campus.returningStudents)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-muted-foreground">New</p>
+              <p className="font-semibold">{formatNumber(campus.newStudents)}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-muted-foreground">Retention</p>
+              <p className={`font-semibold ${
+                campus.retentionRate >= 80 ? 'text-success' :
+                campus.retentionRate >= 60 ? 'text-warning' :
+                'text-destructive'
+              }`}>
+                {formatPercent(campus.retentionRate)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

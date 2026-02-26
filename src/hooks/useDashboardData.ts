@@ -5,6 +5,7 @@ import type { Snapshot, AppSettings, CampusMetrics, SnapshotMetrics, EnrollmentW
 interface OverviewData {
   snapshot: Snapshot | null;
   settings: AppSettings;
+  isAdmin?: boolean;
 }
 
 interface CampusData {

@@ -1,0 +1,1 @@
+function u(e){return e.toLowerCase().includes("micro-campus")?"micro-campus":"branch"}function r(e){const a=[],s=[];for(const c of e)u(c.campusName)==="micro-campus"?s.push(c):a.push(c);return{branch:a,microCampus:s}}function p(e,a){return Object.entries(e).filter(([,s])=>u(s.campusName)===a).map(([s])=>s)}export{p as a,u as b,r as g};

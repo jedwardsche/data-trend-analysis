@@ -131,7 +131,7 @@ exports.scheduledSync = (0, scheduler_1.onSchedule)({
  * Get dashboard data for a specific view
  */
 exports.getDashboardData = (0, https_1.onCall)({ enforceAppCheck: false }, async (request) => {
-    await validateUser(request.auth);
+    const { isAdmin } = await validateUser(request.auth);
     const { schoolYear, view, campusKey } = request.data;
     const settings = await getAppSettings();
     switch (view) {
@@ -142,11 +142,12 @@ exports.getDashboardData = (0, https_1.onCall)({ enforceAppCheck: false }, async
                 .limit(1);
             const snapshotDocs = await snapshotRef.get();
             if (snapshotDocs.empty) {
-                return { snapshot: null, settings };
+                return { snapshot: null, settings, isAdmin };
             }
             return {
                 snapshot: snapshotDocs.docs[0].data(),
-                settings
+                settings,
+                isAdmin
             };
         }
         case 'campus': {
@@ -299,8 +300,8 @@ exports.exportPDF = (0, https_1.onCall)({ enforceAppCheck: false }, async (reque
             previousSnapshot = prevDocs.docs[0].data();
         }
     }
-    const url = await (0, exports_1.generatePDFReport)(snapshot, previousSnapshot, reportType, campusKey, settings);
-    return { url, expiresIn: '1 hour' };
+    const { pdfBase64, fileName } = await (0, exports_1.generatePDFReport)(snapshot, previousSnapshot, reportType, campusKey, settings);
+    return { pdfBase64, fileName };
 });
 /**
  * Export CSV data

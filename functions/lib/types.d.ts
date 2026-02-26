@@ -29,6 +29,12 @@ export interface StudentTruthFieldMapping {
     enrollmentStatus: string;
     schoolYear: string;
     created: string;
+    mcLeader?: string;
+    campusFromTruth?: string;
+    s1TotalPresentDays?: string;
+    s2TotalPresentDays?: string;
+    s1PossiblePresentDays?: string;
+    s2PossiblePresentDays?: string;
 }
 export interface AirtableTableConfig {
     tableIdOrName: string;

@@ -129,7 +129,7 @@ export const scheduledSync = onSchedule(
 export const getDashboardData = onCall<GetDashboardDataRequest>(
   { enforceAppCheck: false },
   async (request: CallableRequest<GetDashboardDataRequest>) => {
-    await validateUser(request.auth);
+    const { isAdmin } = await validateUser(request.auth);
 
     const { schoolYear, view, campusKey } = request.data;
     const settings = await getAppSettings();
@@ -143,12 +143,13 @@ export const getDashboardData = onCall<GetDashboardDataRequest>(
 
         const snapshotDocs = await snapshotRef.get();
         if (snapshotDocs.empty) {
-          return { snapshot: null, settings };
+          return { snapshot: null, settings, isAdmin };
         }
 
         return {
           snapshot: snapshotDocs.docs[0].data() as Snapshot,
-          settings
+          settings,
+          isAdmin
         };
       }
 
@@ -352,7 +353,7 @@ export const exportPDF = onCall<ExportPDFRequest>(
       }
     }
 
-    const url = await generatePDFReport(
+    const { pdfBase64, fileName } = await generatePDFReport(
       snapshot,
       previousSnapshot,
       reportType,
@@ -360,7 +361,7 @@ export const exportPDF = onCall<ExportPDFRequest>(
       settings
     );
 
-    return { url, expiresIn: '1 hour' };
+    return { pdfBase64, fileName };
   }
 );
 

@@ -1,4 +1,3 @@
-import * as admin from 'firebase-admin';
 import type { Firestore } from 'firebase-admin/firestore';
 import PDFDocument from 'pdfkit';
 import {
@@ -9,7 +8,8 @@ import {
 } from './types';
 
 /**
- * Generate PDF report matching the narrative template format
+ * Generate PDF report matching the narrative template format.
+ * Returns the PDF as a base64-encoded string (avoids Storage signed-URL IAM issues).
  */
 export async function generatePDFReport(
   snapshot: Snapshot,
@@ -17,7 +17,7 @@ export async function generatePDFReport(
   reportType: 'annual' | 'campus',
   campusKey: string | undefined,
   settings: AppSettings
-): Promise<string> {
+): Promise<{ pdfBase64: string; fileName: string }> {
   const doc = new PDFDocument({
     margin: 50,
     size: 'LETTER'
@@ -185,24 +185,12 @@ export async function generatePDFReport(
     });
   });
 
-  // Upload to Firebase Storage
-  const bucket = admin.storage().bucket();
-  const fileName = `exports/reports/${snapshot.schoolYear}-${reportType}-${Date.now()}.pdf`;
-  const file = bucket.file(fileName);
-
-  await file.save(pdfBuffer, {
-    metadata: {
-      contentType: 'application/pdf'
-    }
-  });
-
-  // Generate signed URL (expires in 1 hour)
-  const [url] = await file.getSignedUrl({
-    action: 'read',
-    expires: Date.now() + 60 * 60 * 1000
-  });
-
-  return url;
+  // Return PDF as base64 (avoids Storage signed-URL IAM permission issues)
+  const fileName = `CHE-${snapshot.schoolYear}-${reportType}-report.pdf`;
+  return {
+    pdfBase64: pdfBuffer.toString('base64'),
+    fileName
+  };
 }
 
 /**

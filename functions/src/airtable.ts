@@ -112,7 +112,13 @@ async function getAirtableConfig(db: Firestore): Promise<AirtableConfig> {
                 dateEnrolled: 'Date Enrolled',
                 enrollmentStatus: 'Status of Enrollment',
                 schoolYear: 'School Year',
-                created: 'Created'
+                created: 'Created',
+                mcLeader: 'Staff (From Truth)',
+                campusFromTruth: 'Campus (from Truth)',
+                s1TotalPresentDays: 'S1 Total Present Days',
+                s2TotalPresentDays: 'S2 Total Present Days',
+                s1PossiblePresentDays: 'S1 Number of Possible Present Days',
+                s2PossiblePresentDays: 'S2 Number of Possible Present Days'
               }
             }
           },
@@ -152,7 +158,13 @@ async function getAirtableConfig(db: Firestore): Promise<AirtableConfig> {
                 dateEnrolled: 'Date Enrolled',
                 enrollmentStatus: 'Status of Enrollment',
                 schoolYear: 'School Year',
-                created: 'Created'
+                created: 'Created',
+                mcLeader: 'Staff (from Truth)',
+                campusFromTruth: 'Campus (from Truth)',
+                s1TotalPresentDays: 'S1 Total Present Days',
+                s2TotalPresentDays: 'S2 Total Present Days',
+                s1PossiblePresentDays: 'S1 Number of Possible Present Days',
+                s2PossiblePresentDays: 'S2 Number of Possible Present Days'
               }
             }
           },
@@ -223,11 +235,22 @@ function extractSchoolYears(yearStr: string): string[] {
 /**
  * Process students from Airtable records into StudentRecord partials
  */
+interface TruthLookupEntry {
+  date: string;
+  status: string;
+  mcLeader: string;
+  truthCampus: string;
+  s1PresentDays: number;
+  s2PresentDays: number;
+  s1PossibleDays: number;
+  s2PossibleDays: number;
+}
+
 function processStudents(
   records: AirtableRecord[],
   baseConfig: AirtableBaseConfig,
   targetYear: string,
-  studentTruthLookup?: Map<string, { date: string; status: string }>
+  studentTruthLookup?: Map<string, TruthLookupEntry>
 ): Map<string, Partial<StudentRecord>> {
   const students = new Map<string, Partial<StudentRecord>>();
   const fields = baseConfig.tables.students.fields as unknown as Record<string, string>;
@@ -252,16 +275,20 @@ function processStudents(
       const rawStatus = getFieldValue(record, fields.enrollmentStatus);
       const enrollmentStatus = getLastUniqueValue(rawStatus);
 
-      // Look up year-specific Date Enrolled + Status from Student Truth table
+      // Look up year-specific Date Enrolled + Status + MC Leader + Campus from Student Truth table
       let enrollmentDate = '';
       let truthStatus = '';
+      let truthMcLeader = '';
+      let truthCampus = '';
       if (studentTruthLookup && studentTruthLookup.size > 0) {
         const displayName = `${firstName} ${lastName}`;
-        const lookupKey = `${normalizeString(displayName)}|${targetYear}`;
+        const lookupKey = `${normalizeString(displayName).replace(/\s+/g, ' ')}|${targetYear}`;
         const truthData = studentTruthLookup.get(lookupKey);
         if (truthData) {
           enrollmentDate = truthData.date;
           truthStatus = truthData.status;
+          truthMcLeader = truthData.mcLeader;
+          truthCampus = truthData.truthCampus;
         }
       }
       // Fallback: Students table "Enrollment Date" → record createdTime
@@ -275,15 +302,26 @@ function processStudents(
       // but Student Truth has the accurate per-year status (matching Python's direct query approach)
       const finalEnrollmentStatus = enrollmentStatus || truthStatus;
 
+      // Use the truth campus (year-specific) to determine the ACTUAL campus.
+      // The Students table campus field shows ALL campuses from ALL years (linked record history),
+      // so the truth campus is more accurate for the target year.
+      // If truth campus is a named campus (not "Micro-Campus"), use it — the student belongs to
+      // that branch campus, NOT a micro-campus, even if the Students table says "Micro-Campus".
+      const effectiveCampus = truthCampus || campus;
+      const isMicroCampus = effectiveCampus.toLowerCase().includes('micro');
+
+      // Only apply mcLeader for Micro-Campus students — branch campus students should NOT be split
+      const finalMcLeader = isMicroCampus ? (mcLeader || truthMcLeader) : mcLeader;
+
       students.set(studentKey, {
         studentKey,
         firstName,
         lastName,
         dob: formatDate(dob),
         schoolYear: targetYear,
-        campus,
-        mcLeader,
-        campusKey: campus ? createCampusKey(campus, mcLeader) : '',
+        campus: effectiveCampus,
+        mcLeader: finalMcLeader,
+        campusKey: effectiveCampus ? createCampusKey(effectiveCampus, finalMcLeader) : '',
         enrollmentStatus: finalEnrollmentStatus,
         enrolledDate: formatDate(enrollmentDate),
         isVerifiedTransfer: false,
@@ -296,6 +334,54 @@ function processStudents(
   }
   if (skippedCount > 0) {
     console.log(`  Skipped ${skippedCount} records (missing name/dob or parse error)`);
+  }
+
+  // --- Multi-name mcLeader consolidation ---
+  // Some truth records have comma-separated staff names like
+  // "Kristi Kirkpatrick, Karlie Kirkpatrick, Jennifer Sirbu".
+  // These should be consolidated to the primary single-name leader.
+  // Step 1: Collect all single-name micro-campus leaders
+  const singleNameLeaders = new Set<string>();
+  for (const student of students.values()) {
+    if (student.mcLeader && !student.mcLeader.includes(',') &&
+        student.campus?.toLowerCase().includes('micro')) {
+      singleNameLeaders.add(normalizeString(student.mcLeader));
+    }
+  }
+
+  // Step 2: For students with multi-name mcLeaders, find a matching single-name leader
+  let consolidatedCount = 0;
+  for (const [key, student] of students) {
+    if (!student.mcLeader || !student.mcLeader.includes(',')) continue;
+    if (!student.campus?.toLowerCase().includes('micro')) continue;
+
+    const names = student.mcLeader.split(',').map(n => n.trim()).filter(Boolean);
+    let matchedLeader = '';
+
+    // Check if any individual name matches a known single-name leader
+    for (const name of names) {
+      if (singleNameLeaders.has(normalizeString(name))) {
+        matchedLeader = name;
+        break;
+      }
+    }
+
+    // If no match found, use the first name
+    if (!matchedLeader) {
+      matchedLeader = names[0];
+    }
+
+    // Update student record with consolidated leader
+    student.mcLeader = matchedLeader;
+    student.campusKey = student.campus
+      ? createCampusKey(student.campus, matchedLeader)
+      : '';
+    students.set(key, student);
+    consolidatedCount++;
+  }
+
+  if (consolidatedCount > 0) {
+    console.log(`  Consolidated ${consolidatedCount} multi-name mcLeader records`);
   }
 
   return students;
@@ -328,6 +414,9 @@ export async function syncAirtableData(
   const allStudentsByYear = new Map<string, Map<string, Partial<StudentRecord>>>();
   const allCampusesByYear = new Map<string, Set<string>>();
 
+  // Store Student Truth attendance lookups per year for non-starter detection
+  const studentTruthLookups = new Map<string, Map<string, TruthLookupEntry>>();
+
   // Process each base
   for (const base of config.bases) {
     try {
@@ -342,9 +431,9 @@ export async function syncAirtableData(
 
       console.log(`  Fetched ${records.length} total student records`);
 
-      // Fetch Student Truth records for year-specific enrollment dates + statuses
-      // key: "normalizedName|year" → { date, status }
-      const studentTruthLookup = new Map<string, { date: string; status: string }>();
+      // Fetch Student Truth records for year-specific enrollment dates, statuses, and attendance
+      // key: "normalizedName|year" → { date, status, attendance data }
+      const studentTruthLookup = new Map<string, TruthLookupEntry>();
       if (base.tables.studentTruth) {
         console.log(`  Fetching Student Truth records from ${base.label}...`);
         const truthRecords = await fetchAirtableRecords(
@@ -368,12 +457,42 @@ export async function syncAirtableData(
           });
         }
 
+        let skippedSandboxCount = 0;
         for (const record of truthRecords) {
           const rawStudentName = getFieldValue(record, truthFields.studentLink);
           const rawYear = getFieldValue(record, truthFields.schoolYear);
           const dateEnrolled = getFieldValue(record, truthFields.dateEnrolled);
           const created = getFieldValue(record, truthFields.created);
           const status = getFieldValue(record, truthFields.enrollmentStatus);
+          const truthMcLeader = truthFields.mcLeader
+            ? getFieldValue(record, truthFields.mcLeader)
+            : '';
+          const truthCampus = truthFields.campusFromTruth
+            ? getFieldValue(record, truthFields.campusFromTruth)
+            : '';
+
+          // Skip Sandbox/Training truth records entirely
+          if (truthMcLeader && (
+            truthMcLeader.toLowerCase().includes('sandbox') ||
+            truthMcLeader.toLowerCase().includes('training')
+          )) {
+            skippedSandboxCount++;
+            continue;
+          }
+
+          // Extract attendance rollup fields
+          const s1PresentDays = truthFields.s1TotalPresentDays
+            ? parseFloat(getFieldValue(record, truthFields.s1TotalPresentDays)) || 0
+            : 0;
+          const s2PresentDays = truthFields.s2TotalPresentDays
+            ? parseFloat(getFieldValue(record, truthFields.s2TotalPresentDays)) || 0
+            : 0;
+          const s1PossibleDays = truthFields.s1PossiblePresentDays
+            ? parseFloat(getFieldValue(record, truthFields.s1PossiblePresentDays)) || 0
+            : 0;
+          const s2PossibleDays = truthFields.s2PossiblePresentDays
+            ? parseFloat(getFieldValue(record, truthFields.s2PossiblePresentDays)) || 0
+            : 0;
 
           if (!rawStudentName || !rawYear) continue;
 
@@ -382,8 +501,8 @@ export async function syncAirtableData(
           const cleanName = rawStudentName.replace(/^"+|"+$/g, '').trim(); // strip surrounding quotes
           const nameParts = cleanName.split(',').map(s => s.trim());
           const normalizedName = nameParts.length >= 2
-            ? normalizeString(`${nameParts[1]} ${nameParts[0]}`) // "First Last"
-            : normalizeString(cleanName);
+            ? normalizeString(`${nameParts[1]} ${nameParts[0]}`).replace(/\s+/g, ' ') // "First Last"
+            : normalizeString(cleanName).replace(/\s+/g, ' ');
 
           const years = extractSchoolYears(rawYear);
           for (const year of years) {
@@ -401,11 +520,35 @@ export async function syncAirtableData(
             }
 
             if (effectiveDate) {
-              studentTruthLookup.set(lookupKey, { date: effectiveDate, status: status || '' });
+              studentTruthLookup.set(lookupKey, {
+                date: effectiveDate,
+                status: status || '',
+                mcLeader: truthMcLeader || '',
+                truthCampus: truthCampus || '',
+                s1PresentDays,
+                s2PresentDays,
+                s1PossibleDays,
+                s2PossibleDays
+              });
             }
           }
         }
+        if (skippedSandboxCount > 0) {
+          console.log(`  Skipped ${skippedSandboxCount} Sandbox/Training truth records`);
+        }
         console.log(`  Built Student Truth lookup with ${studentTruthLookup.size} entries`);
+
+        // Copy truth entries into per-year lookup map for non-starter detection during Firestore write
+        for (const [lookupKey, entry] of studentTruthLookup) {
+          // lookupKey format: "normalizedname|year"
+          const pipeIdx = lookupKey.lastIndexOf('|');
+          const yearPart = lookupKey.substring(pipeIdx + 1);
+          const nameKey = lookupKey; // keep full key for lookup consistency
+          if (!studentTruthLookups.has(yearPart)) {
+            studentTruthLookups.set(yearPart, new Map());
+          }
+          studentTruthLookups.get(yearPart)!.set(nameKey, entry);
+        }
       }
 
       // Log field diagnostics
@@ -582,11 +725,42 @@ export async function syncAirtableData(
 
       // Derive attrition flags from enrollment status
       const status = student.enrollmentStatus || '';
-      const isNonStarter = isNonStarterStatus(status);
       const isWithdrawal = isWithdrawalStatus(status);
 
-      // attendedAtLeastOnce: false for non-starters, true for everyone else
-      const attendedAtLeastOnce = !isNonStarter;
+      // Determine attendedAtLeastOnce from Student Truth attendance rollups.
+      // Look up the student's truth entry to check present days vs possible days.
+      let attendedAtLeastOnce = true; // default: assume attended unless we have data saying otherwise
+      const displayName = `${student.firstName} ${student.lastName}`;
+      // Collapse multiple whitespace to single space for consistent lookup key matching
+      const truthKey = `${normalizeString(displayName).replace(/\s+/g, ' ')}|${year}`;
+      const truthLookupForYear = studentTruthLookups.get(year);
+
+      if (truthLookupForYear) {
+        const truthEntry = truthLookupForYear.get(truthKey);
+        if (truthEntry) {
+          const totalPossible = truthEntry.s1PossibleDays + truthEntry.s2PossibleDays;
+          const totalPresent = truthEntry.s1PresentDays + truthEntry.s2PresentDays;
+          if (totalPossible > 0 && totalPresent <= 0) {
+            // Had classes scheduled but never attended any (negative values = data artifact, treat as 0)
+            attendedAtLeastOnce = false;
+          } else if (totalPossible <= 0) {
+            // No classes scheduled — non-starter if they also have a withdrawal/non-starter status
+            if (isNonStarterStatus(status) || isWithdrawal) {
+              attendedAtLeastOnce = false;
+            }
+          }
+        } else {
+          // No truth entry found — only flag if explicit non-starter status
+          if (isNonStarterStatus(status)) {
+            attendedAtLeastOnce = false;
+          }
+        }
+      } else {
+        // No truth lookup available — fall back to status-based check
+        if (isNonStarterStatus(status)) {
+          attendedAtLeastOnce = false;
+        }
+      }
 
       // withdrawalDate: use enrolled date as proxy for withdrawal students
       // (exact withdrawal date not available from Airtable)

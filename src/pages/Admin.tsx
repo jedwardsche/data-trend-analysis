@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext, Navigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,10 +24,15 @@ import type { AllowedUser } from '@/types';
 
 interface OutletContext {
   selectedYear: string;
+  isAdmin: boolean;
 }
 
 export function AdminPage() {
-  const { selectedYear } = useOutletContext<OutletContext>();
+  const { selectedYear, isAdmin } = useOutletContext<OutletContext>();
+
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
+  }
   const queryClient = useQueryClient();
 
   const [newUserEmail, setNewUserEmail] = useState('');
@@ -110,8 +115,21 @@ export function AdminPage() {
   const pdfMutation = useMutation({
     mutationFn: () => exportPDF({ schoolYear: selectedYear, reportType: 'annual' }),
     onSuccess: (data) => {
-      window.open(data.url, '_blank');
-      toast.success('PDF generated');
+      // Convert base64 to blob and trigger download
+      const byteCharacters = atob(data.pdfBase64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = data.fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('PDF downloaded');
     },
     onError: (error) => {
       toast.error('PDF export failed: ' + (error as Error).message);

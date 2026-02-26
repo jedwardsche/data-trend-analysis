@@ -63,6 +63,22 @@ export async function calculateSnapshot(
   for (const student of students) {
     const isActive = isActiveEnrollment(student.enrollmentStatus);
 
+    // Ensure campus entry exists for ALL students (not just active ones)
+    // so attrition metrics can be tracked at the campus level
+    if (student.campusKey && !byCampus[student.campusKey]) {
+      byCampus[student.campusKey] = {
+        campusName: student.campus,
+        mcLeader: student.mcLeader,
+        totalEnrollment: 0,
+        returningStudents: 0,
+        newStudents: 0,
+        retentionRate: 0,
+        nonStarters: 0,
+        midYearWithdrawals: 0,
+        attendanceRate: 0
+      };
+    }
+
     // Only count active enrollments in totals
     if (isActive) {
       metrics.totalEnrollment++;
@@ -76,28 +92,15 @@ export async function calculateSnapshot(
         metrics.newCampusGrowth++;
       }
 
-      // Initialize campus metrics if needed
-      if (!byCampus[student.campusKey]) {
-        byCampus[student.campusKey] = {
-          campusName: student.campus,
-          mcLeader: student.mcLeader,
-          totalEnrollment: 0,
-          returningStudents: 0,
-          newStudents: 0,
-          retentionRate: 0,
-          nonStarters: 0,
-          midYearWithdrawals: 0,
-          attendanceRate: 0
-        };
-      }
-
       const campus = byCampus[student.campusKey];
-      campus.totalEnrollment++;
+      if (campus) {
+        campus.totalEnrollment++;
 
-      if (student.isReturningStudent) {
-        campus.returningStudents++;
-      } else {
-        campus.newStudents++;
+        if (student.isReturningStudent) {
+          campus.returningStudents++;
+        } else {
+          campus.newStudents++;
+        }
       }
     }
 
@@ -114,6 +117,25 @@ export async function calculateSnapshot(
       }
     } else if (student.isVerifiedTransfer) {
       metrics.verifiedTransfers++;
+    }
+  }
+
+  // Carry forward campuses from the prior year that don't yet have students
+  // in the current year, so they still appear on the Campuses page (even if
+  // closed or not yet enrolling for the new year).
+  for (const priorStudent of priorYearStudents) {
+    if (priorStudent.campusKey && !byCampus[priorStudent.campusKey]) {
+      byCampus[priorStudent.campusKey] = {
+        campusName: priorStudent.campus,
+        mcLeader: priorStudent.mcLeader,
+        totalEnrollment: 0,
+        returningStudents: 0,
+        newStudents: 0,
+        retentionRate: 0,
+        nonStarters: 0,
+        midYearWithdrawals: 0,
+        attendanceRate: 0
+      };
     }
   }
 

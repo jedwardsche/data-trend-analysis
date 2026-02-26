@@ -11,8 +11,9 @@ import {
   Menu
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CheLogo } from '@/components/ui/logo';
 import { Button } from '@/components/ui/button';
+import { useOverviewData } from '@/hooks/useDashboardData';
+import cheLogo from '@/assets/che-logo.png';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,11 +31,11 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 
 const navItems = [
-  { path: '/dashboard', label: 'Overview', icon: LayoutDashboard },
-  { path: '/dashboard/campuses', label: 'Campuses', icon: Building2 },
-  { path: '/dashboard/yoy', label: 'Year over Year', icon: TrendingUp },
-  { path: '/dashboard/timeline', label: 'Enrollment Timeline', icon: CalendarDays },
-  { path: '/dashboard/admin', label: 'Admin', icon: Settings },
+  { path: '/dashboard', label: 'Overview', icon: LayoutDashboard, adminOnly: false },
+  { path: '/dashboard/campuses', label: 'Campuses', icon: Building2, adminOnly: false },
+  { path: '/dashboard/yoy', label: 'Year over Year', icon: TrendingUp, adminOnly: false },
+  { path: '/dashboard/timeline', label: 'Enrollment Timeline', icon: CalendarDays, adminOnly: false },
+  { path: '/dashboard/admin', label: 'Admin', icon: Settings, adminOnly: true },
 ];
 
 // Default school years - will be updated from settings
@@ -49,6 +50,9 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
   const location = useLocation();
   const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { data: overviewData } = useOverviewData(selectedYear);
+  const isAdmin = overviewData?.isAdmin ?? false;
+  const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 
   const userInitials = user?.displayName
     ?.split(' ')
@@ -71,7 +75,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
           </Button>
 
           <div className="flex items-center gap-2">
-            <CheLogo variant="symbol" width={32} height={32} className="text-che-orange" />
+            <img src={cheLogo} alt="CHE" className="h-8 w-auto shrink-0" />
             <span className="font-semibold text-lg hidden sm:inline">KPI Analytics</span>
           </div>
 
@@ -122,7 +126,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
           )}
         >
           <nav className="flex flex-col gap-1 p-4">
-            {navItems.map(item => {
+            {visibleNavItems.map(item => {
               const Icon = item.icon;
               const isActive = location.pathname === item.path ||
                 (item.path !== '/dashboard' && location.pathname.startsWith(item.path));
@@ -151,7 +155,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
           'flex-1 p-6 transition-all',
           sidebarOpen ? 'md:ml-64' : ''
         )}>
-          <Outlet context={{ selectedYear }} />
+          <Outlet context={{ selectedYear, isAdmin }} />
         </main>
       </div>
 

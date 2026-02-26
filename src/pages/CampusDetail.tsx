@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCampusData, useAllYearsTimelineData } from '@/hooks/useDashboardData';
 import { formatNumber, formatPercent } from '@/lib/formatters';
+import { getCampusType } from '@/lib/campus-utils';
 import { RetentionGauge } from '@/components/charts/RetentionGauge';
 import { CampusCumulativeChart } from '@/components/charts/CampusCumulativeChart';
 import { ArrowLeft } from 'lucide-react';
@@ -46,10 +47,21 @@ export function CampusDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-3xl font-bold">{campus.campusName}</h1>
-          <p className="text-muted-foreground">
-            MC Leader: {campus.mcLeader} &middot; {selectedYear}
-          </p>
+          {getCampusType(campus.campusName) === 'micro-campus' ? (
+            <>
+              <h1 className="text-3xl font-bold">{campus.mcLeader || 'Micro-Campus'}</h1>
+              <p className="text-muted-foreground">
+                Micro-Campus &middot; {selectedYear}
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl font-bold">{campus.campusName}</h1>
+              <p className="text-muted-foreground">
+                {campus.mcLeader && <>MC Leader: {campus.mcLeader} &middot; </>}{selectedYear}
+              </p>
+            </>
+          )}
         </div>
       </div>
 

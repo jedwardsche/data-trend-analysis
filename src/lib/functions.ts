@@ -19,6 +19,7 @@ interface GetDashboardDataRequest {
 interface OverviewResponse {
   snapshot: Snapshot | null;
   settings: AppSettings;
+  isAdmin?: boolean;
 }
 
 interface CampusResponse {
@@ -108,8 +109,8 @@ interface ExportPDFRequest {
 }
 
 interface ExportPDFResponse {
-  url: string;
-  expiresIn: string;
+  pdfBase64: string;
+  fileName: string;
 }
 
 export async function exportPDF(

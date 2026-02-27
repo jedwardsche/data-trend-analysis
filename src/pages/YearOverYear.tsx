@@ -75,8 +75,8 @@ export function YearOverYearPage() {
       {/* Enrollment Trend (embedded) */}
       <iframe
         src="https://enroll.che.school/embed/cumulative-enrollment"
-        className="w-full border-0"
-        style={{ height: '45vh', minHeight: '300px' }}
+        className="w-full border-0 rounded-lg"
+        style={{ aspectRatio: '16 / 10', minHeight: '400px' }}
         title="Cumulative Enrollment"
       />
 

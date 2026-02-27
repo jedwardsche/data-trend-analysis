@@ -17,6 +17,7 @@ interface OutletContext {
 }
 
 type SortField = 'campusName' | 'totalEnrollment' | 'returningStudents' | 'newStudents' | 'retentionRate';
+type CampusFilter = 'all' | 'new' | 'returning';
 
 interface CampusWithKey extends CampusMetrics {
   key: string;
@@ -30,6 +31,7 @@ export function CampusesPage() {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('totalEnrollment');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [campusFilter, setCampusFilter] = useState<CampusFilter>('all');
   const [branchOpen, setBranchOpen] = useState(true);
   const [microOpen, setMicroOpen] = useState(true);
 
@@ -65,6 +67,11 @@ export function CampusesPage() {
         return direction * cmp;
       }
       return direction * ((aVal as number) - (bVal as number));
+    })
+    .filter(campus => {
+      if (campusFilter === 'new') return campus.isNewCampus === true;
+      if (campusFilter === 'returning') return campus.isNewCampus !== true;
+      return true;
     });
 
   const { branch, microCampus } = groupCampusesByType(allCampuses);
@@ -98,7 +105,7 @@ export function CampusesPage() {
         </p>
       </div>
 
-      {/* Search & Sort Controls */}
+      {/* Search, Filter & Sort Controls */}
       <div className="flex items-center gap-4 flex-wrap">
         <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -108,6 +115,20 @@ export function CampusesPage() {
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
           />
+        </div>
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          Filter:
+          {(['all', 'new', 'returning'] as CampusFilter[]).map(filter => (
+            <Button
+              key={filter}
+              variant={campusFilter === filter ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setCampusFilter(filter)}
+              className="h-7 text-xs"
+            >
+              {filter === 'all' ? 'All' : filter === 'new' ? 'New' : 'Returning'}
+            </Button>
+          ))}
         </div>
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           Sort by:

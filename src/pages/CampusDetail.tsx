@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useCampusData, useAllYearsTimelineData } from '@/hooks/useDashboardData';
-import { formatNumber, formatPercent } from '@/lib/formatters';
+import { formatNumber } from '@/lib/formatters';
 import { getCampusType } from '@/lib/campus-utils';
 import { RetentionGauge } from '@/components/charts/RetentionGauge';
 import { CampusCumulativeChart } from '@/components/charts/CampusCumulativeChart';
@@ -65,7 +65,7 @@ export function CampusDetailPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -94,16 +94,6 @@ export function CampusDetailPage() {
           </CardHeader>
           <CardContent>
             <p className="text-2xl font-bold">{formatNumber(campus.newStudents)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Attendance Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-bold">{formatPercent(campus.attendanceRate)}</p>
           </CardContent>
         </Card>
       </div>
@@ -171,8 +161,8 @@ function CampusDetailSkeleton() {
           <Skeleton className="h-5 w-48 mt-2" />
         </div>
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {[...Array(4)].map((_, i) => (
+      <div className="grid gap-4 md:grid-cols-3">
+        {[...Array(3)].map((_, i) => (
           <Skeleton key={i} className="h-24" />
         ))}
       </div>

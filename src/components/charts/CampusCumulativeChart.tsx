@@ -34,7 +34,6 @@ export function CampusCumulativeChart({
 }: CampusCumulativeChartProps) {
   const { chartData, years } = useMemo(() => {
     const years = Object.keys(timelines).sort();
-    const latestYear = years[years.length - 1];
 
     // Find max week count across all years
     const maxWeeks = Math.max(
@@ -47,13 +46,17 @@ export function CampusCumulativeChart({
     for (let w = 1; w <= maxWeeks; w++) {
       const row: Record<string, number | string> = { week: w };
 
-      // Use the latest year's week start date as the x-axis date reference
-      const latestWeek = timelines[latestYear]?.find(wk => wk.weekNumber === w);
-      if (latestWeek) {
-        row.dateLabel = shortDate(latestWeek.weekStart);
-      } else {
-        row.dateLabel = `Wk ${w}`;
+      // Find a date label from any year that has this week number,
+      // preferring the latest year first
+      let dateLabel: string | null = null;
+      for (let i = years.length - 1; i >= 0; i--) {
+        const wk = timelines[years[i]]?.find(wk => wk.weekNumber === w);
+        if (wk) {
+          dateLabel = shortDate(wk.weekStart);
+          break;
+        }
       }
+      row.dateLabel = dateLabel || `Wk ${w}`;
 
       for (const year of years) {
         const weekData = timelines[year]?.find(wk => wk.weekNumber === w);

@@ -8,7 +8,6 @@ import {
   createStudentKey,
   createCampusKey,
   formatDate,
-  isActiveEnrollment,
   isNonStarterStatus,
   isWithdrawalStatus,
   normalizeString
@@ -682,15 +681,16 @@ export async function syncAirtableData(
   }
 
   // Build cross-year lookups for isReturningStudent and isReturningCampus.
-  // Only count a student/campus as "present in year X" if they had an ACTIVE enrollment status
-  // that year — this ensures retention rates stay within 0–100%.
+  // Include all students who were enrolled at some point in a year — active, withdrawn, or
+  // unenrolled (end-of-year status change). Exclude only confirmed non-starters, who never
+  // actually attended and should not count as "present" in a year.
   const studentYearLookup = new Map<string, Set<string>>();
   const campusYearLookup = new Map<string, Set<string>>();
 
   for (const [year, students] of allStudentsByYear) {
     for (const [key, student] of students) {
-      // Only include students with an active enrollment status in this year
-      if (!isActiveEnrollment(student.enrollmentStatus || '')) continue;
+      // Exclude non-starters — they enrolled but never attended
+      if (isNonStarterStatus(student.enrollmentStatus || '')) continue;
 
       if (!studentYearLookup.has(key)) studentYearLookup.set(key, new Set());
       studentYearLookup.get(key)!.add(year);

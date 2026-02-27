@@ -29,6 +29,7 @@ export interface CampusMetrics {
   nonStarters: number;
   midYearWithdrawals: number;
   attendanceRate: number;
+  isNewCampus?: boolean;
 }
 
 /**

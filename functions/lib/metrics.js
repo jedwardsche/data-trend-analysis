@@ -21,8 +21,10 @@ async function calculateSnapshot(db, schoolYear, settings) {
         .where('schoolYear', '==', priorYear)
         .get();
     const priorYearStudents = priorYearDocs.docs.map(doc => doc.data());
-    // Calculate eligible prior year students (excluding graduates)
-    const eligiblePriorYear = priorYearStudents.filter(s => !s.isGraduate && (0, types_1.isActiveEnrollment)(s.enrollmentStatus));
+    // Calculate eligible prior year students: all students who were enrolled at some point,
+    // excluding graduates (can't return), verified transfers, and non-starters (never attended).
+    // This includes students whose status changed to "Unenrolled" at end-of-year.
+    const eligiblePriorYear = priorYearStudents.filter(s => !s.isGraduate && !s.isVerifiedTransfer && !(0, types_1.isNonStarterStatus)(s.enrollmentStatus));
     // Initialize metrics
     const metrics = {
         totalEnrollment: 0,
@@ -134,6 +136,11 @@ async function calculateSnapshot(db, schoolYear, settings) {
         const priorCount = priorYearByCampus.get(campusKey) || 0;
         if (priorCount > 0) {
             campus.retentionRate = Math.round((campus.returningStudents / priorCount) * 100);
+            campus.isNewCampus = false;
+        }
+        else {
+            // No prior year students at this campus — it's a new campus
+            campus.isNewCampus = true;
         }
     }
     // Check if this should be the locked Oct 1 count-day snapshot

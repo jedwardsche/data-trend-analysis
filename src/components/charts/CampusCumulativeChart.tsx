@@ -19,6 +19,14 @@ interface CampusCumulativeChartProps {
   height?: number;
 }
 
+/**
+ * Format a date string (yyyy-MM-dd) as a short label (e.g., "Aug 4", "Sep 15").
+ */
+function shortDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
 export function CampusCumulativeChart({
   timelines,
   campusKeys,
@@ -26,6 +34,7 @@ export function CampusCumulativeChart({
 }: CampusCumulativeChartProps) {
   const { chartData, years } = useMemo(() => {
     const years = Object.keys(timelines).sort();
+    const latestYear = years[years.length - 1];
 
     // Find max week count across all years
     const maxWeeks = Math.max(
@@ -37,6 +46,14 @@ export function CampusCumulativeChart({
 
     for (let w = 1; w <= maxWeeks; w++) {
       const row: Record<string, number | string> = { week: w };
+
+      // Use the latest year's week start date as the x-axis date reference
+      const latestWeek = timelines[latestYear]?.find(wk => wk.weekNumber === w);
+      if (latestWeek) {
+        row.dateLabel = shortDate(latestWeek.weekStart);
+      } else {
+        row.dateLabel = `Wk ${w}`;
+      }
 
       for (const year of years) {
         const weekData = timelines[year]?.find(wk => wk.weekNumber === w);
@@ -70,15 +87,12 @@ export function CampusCumulativeChart({
         <LineChart data={chartData}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
           <XAxis
-            dataKey="week"
-            tick={{ fill: 'var(--muted-foreground)', fontSize: 12 }}
-            label={{
-              value: 'Week',
-              position: 'insideBottom',
-              offset: -5,
-              fill: 'var(--muted-foreground)',
-              fontSize: 12
-            }}
+            dataKey="dateLabel"
+            tick={{ fill: 'var(--muted-foreground)', fontSize: 11 }}
+            interval="preserveStartEnd"
+            angle={-35}
+            textAnchor="end"
+            height={50}
           />
           <YAxis
             tick={{ fill: 'var(--muted-foreground)' }}
@@ -94,7 +108,7 @@ export function CampusCumulativeChart({
               formatNumber(value),
               name
             ]}
-            labelFormatter={(label) => `Week ${label}`}
+            labelFormatter={(label) => String(label)}
           />
           <Legend />
           {years.map((year) => (

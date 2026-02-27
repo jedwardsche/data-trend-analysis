@@ -239,6 +239,9 @@ function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCa
                         {campus.mcLeader || 'Unknown Leader'}
                       </p>
                       <CampusSizeBadge enrollment={campus.totalEnrollment} />
+                      {campus.isNewCampus && (
+                        <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/15 text-xs">New</Badge>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-5 text-sm shrink-0">
@@ -256,13 +259,17 @@ function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCa
                     </div>
                     <div className="text-right">
                       <p className="text-muted-foreground">Retention</p>
-                      <p className={`font-semibold ${
-                        campus.retentionRate >= 80 ? 'text-success' :
-                        campus.retentionRate >= 60 ? 'text-warning' :
-                        'text-destructive'
-                      }`}>
-                        {formatPercent(campus.retentionRate)}
-                      </p>
+                      {campus.isNewCampus ? (
+                        <p className="font-semibold text-muted-foreground">N/A</p>
+                      ) : (
+                        <p className={`font-semibold ${
+                          campus.retentionRate >= 80 ? 'text-success' :
+                          campus.retentionRate >= 60 ? 'text-warning' :
+                          'text-destructive'
+                        }`}>
+                          {formatPercent(campus.retentionRate)}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -287,6 +294,9 @@ function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () =>
             <div className="flex items-center gap-1.5">
               <p className="font-medium text-sm truncate">{campus.campusName}</p>
               <CampusSizeBadge enrollment={campus.totalEnrollment} />
+              {campus.isNewCampus && (
+                <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/15 text-xs">New</Badge>
+              )}
             </div>
             {campus.mcLeader && (
               <p className="text-xs text-muted-foreground">{campus.mcLeader}</p>
@@ -307,13 +317,17 @@ function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () =>
             </div>
             <div className="text-right">
               <p className="text-muted-foreground">Retention</p>
-              <p className={`font-semibold ${
-                campus.retentionRate >= 80 ? 'text-success' :
-                campus.retentionRate >= 60 ? 'text-warning' :
-                'text-destructive'
-              }`}>
-                {formatPercent(campus.retentionRate)}
-              </p>
+              {campus.isNewCampus ? (
+                <p className="font-semibold text-muted-foreground">N/A</p>
+              ) : (
+                <p className={`font-semibold ${
+                  campus.retentionRate >= 80 ? 'text-success' :
+                  campus.retentionRate >= 60 ? 'text-warning' :
+                  'text-destructive'
+                }`}>
+                  {formatPercent(campus.retentionRate)}
+                </p>
+              )}
             </div>
           </div>
         </div>

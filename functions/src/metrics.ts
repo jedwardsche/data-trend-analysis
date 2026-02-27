@@ -6,7 +6,8 @@ import {
   CampusMetrics,
   EnrollmentWeek,
   AppSettings,
-  isActiveEnrollment
+  isActiveEnrollment,
+  isNonStarterStatus
 } from './types';
 import { format, startOfWeek, parseISO } from 'date-fns';
 
@@ -36,9 +37,11 @@ export async function calculateSnapshot(
 
   const priorYearStudents = priorYearDocs.docs.map(doc => doc.data() as StudentRecord);
 
-  // Calculate eligible prior year students (excluding graduates)
+  // Calculate eligible prior year students: all students who were enrolled at some point,
+  // excluding graduates (can't return), verified transfers, and non-starters (never attended).
+  // This includes students whose status changed to "Unenrolled" at end-of-year.
   const eligiblePriorYear = priorYearStudents.filter(s =>
-    !s.isGraduate && isActiveEnrollment(s.enrollmentStatus)
+    !s.isGraduate && !s.isVerifiedTransfer && !isNonStarterStatus(s.enrollmentStatus)
   );
 
   // Initialize metrics
@@ -164,6 +167,10 @@ export async function calculateSnapshot(
       campus.retentionRate = Math.round(
         (campus.returningStudents / priorCount) * 100
       );
+      campus.isNewCampus = false;
+    } else {
+      // No prior year students at this campus — it's a new campus
+      campus.isNewCampus = true;
     }
   }
 

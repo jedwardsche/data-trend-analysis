@@ -73,6 +73,8 @@ export function DashboardPage() {
 
   // Non-starters: use manual override from settings if available, otherwise snapshot
   const nonStarters = settings.nonStartersByYear?.[selectedYear] ?? m.nonStarters;
+  // Recalculate total attrition using the (possibly overridden) non-starters
+  const totalAttrition = nonStarters + m.midYearWithdrawals;
 
   return (
     <div className="space-y-6">
@@ -194,8 +196,8 @@ export function DashboardPage() {
         />
         <MetricCard
           title="Total Attrition"
-          value={m.attritionTotal}
-          previousValue={pm?.attritionTotal}
+          value={totalAttrition}
+          previousValue={pm ? (pm.nonStarters + pm.midYearWithdrawals) : undefined}
           description="Non-starters + withdrawals"
         />
       </div>

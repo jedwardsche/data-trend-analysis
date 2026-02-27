@@ -76,7 +76,7 @@ export function YearOverYearPage() {
       <iframe
         src="https://enroll.che.school/embed/cumulative-enrollment"
         className="w-full border-0"
-        style={{ height: '55vh' }}
+        style={{ height: '45vh', minHeight: '300px' }}
         title="Cumulative Enrollment"
       />
 
@@ -124,13 +124,13 @@ export function YearOverYearPage() {
         <CardHeader>
           <CardTitle>Key Metrics Comparison</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Metric</TableHead>
+                <TableHead className="whitespace-nowrap">Metric</TableHead>
                 {years.map(year => (
-                  <TableHead key={year} className="text-right">
+                  <TableHead key={year} className="text-right whitespace-nowrap">
                     {year}
                     {year === settings.currentSchoolYear && (
                       <Badge variant="outline" className="ml-2">Current</Badge>
@@ -263,7 +263,7 @@ interface MetricRowProps {
 function MetricRow({ label, years, getValue, format, invertColor = false }: MetricRowProps) {
   return (
     <TableRow>
-      <TableCell className="font-medium">{label}</TableCell>
+      <TableCell className="font-medium whitespace-nowrap">{label}</TableCell>
       {years.map((year, index) => {
         const value = getValue(year);
         const prevValue = index > 0 ? getValue(years[index - 1]) : null;
@@ -282,7 +282,7 @@ function MetricRow({ label, years, getValue, format, invertColor = false }: Metr
           : (isPositive ? 'text-success' : 'text-destructive');
 
         return (
-          <TableCell key={year} className="text-right">
+          <TableCell key={year} className="text-right whitespace-nowrap">
             <span>{formattedValue}</span>
             {changeText && (
               <span className={`text-xs ml-2 ${changeColor}`}>

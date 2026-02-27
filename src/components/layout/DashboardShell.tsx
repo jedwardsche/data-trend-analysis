@@ -50,7 +50,7 @@ interface DashboardShellProps {
 export function DashboardShell({ selectedYear, onYearChange }: DashboardShellProps) {
   const location = useLocation();
   const { user, signOut } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { data: overviewData, error: overviewError, isLoading: overviewLoading } = useOverviewData(selectedYear);
 
   // Check if the backend rejected the user as unauthorized
@@ -174,10 +174,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
         </aside>
 
         {/* Main Content */}
-        <main className={cn(
-          'flex-1 p-6 transition-all',
-          sidebarOpen ? 'md:ml-64' : ''
-        )}>
+        <main className="flex-1 p-4 md:p-6 transition-all md:ml-64 overflow-x-hidden">
           <Outlet context={{ selectedYear, isAdmin }} />
         </main>
       </div>
@@ -185,7 +182,7 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-background/80 backdrop-blur-sm md:hidden"
+          className="fixed inset-0 z-30 bg-background/40 md:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}

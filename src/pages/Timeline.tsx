@@ -110,7 +110,7 @@ export function TimelinePage() {
       {/* Chart */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
             <CardTitle>Enrollment Over Time</CardTitle>
             <Tabs value={view} onValueChange={(v) => setView(v as 'cumulative' | 'weekly')}>
               <TabsList>
@@ -133,15 +133,15 @@ export function TimelinePage() {
         <CardHeader>
           <CardTitle>Weekly Breakdown</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Week</TableHead>
-                <TableHead>Start Date</TableHead>
-                <TableHead className="text-right">New Enrollments</TableHead>
-                <TableHead className="text-right">Cumulative Total</TableHead>
-                <TableHead className="text-right">% of Total</TableHead>
+                <TableHead className="whitespace-nowrap">Week</TableHead>
+                <TableHead className="whitespace-nowrap">Start Date</TableHead>
+                <TableHead className="text-right whitespace-nowrap">New Enrollments</TableHead>
+                <TableHead className="text-right whitespace-nowrap">Cumulative Total</TableHead>
+                <TableHead className="text-right whitespace-nowrap">% of Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>

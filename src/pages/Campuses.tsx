@@ -100,7 +100,7 @@ export function CampusesPage() {
 
       {/* Search & Sort Controls */}
       <div className="flex items-center gap-4 flex-wrap">
-        <div className="relative w-64">
+        <div className="relative w-full sm:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search campuses..."
@@ -174,18 +174,18 @@ function CampusGroup({ title, icon, campuses, isOpen, onToggle, onCampusClick }:
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
       <CollapsibleTrigger asChild>
-        <button className="flex items-center gap-3 w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors">
-          {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
+        <button className="flex items-center gap-2 sm:gap-3 w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors">
+          {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />}
           {icon}
-          <span className="text-lg font-semibold">{title}</span>
-          <Badge variant="secondary" className="ml-2">{campuses.length}</Badge>
-          <span className="text-sm text-muted-foreground ml-auto">
-            {formatNumber(totalEnrollment)} total enrolled
+          <span className="text-base sm:text-lg font-semibold">{title}</span>
+          <Badge variant="secondary">{campuses.length}</Badge>
+          <span className="text-xs sm:text-sm text-muted-foreground ml-auto hidden xs:inline">
+            {formatNumber(totalEnrollment)} total
           </span>
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="grid gap-1 pt-1 pl-8">
+        <div className="grid gap-1 pt-1 pl-2 sm:pl-8">
           {campuses.map(campus => (
             <CampusCard
               key={campus.key}
@@ -212,18 +212,18 @@ function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCa
   return (
     <Collapsible open={isOpen} onOpenChange={onToggle}>
       <CollapsibleTrigger asChild>
-        <button className="flex items-center gap-3 w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors">
-          {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground" /> : <ChevronRight className="h-5 w-5 text-muted-foreground" />}
-          <Users className="h-5 w-5" />
-          <span className="text-lg font-semibold">Micro-Campuses</span>
-          <Badge variant="secondary" className="ml-2">{campuses.length}</Badge>
-          <span className="text-sm text-muted-foreground ml-auto">
-            {formatNumber(totalEnrollment)} total enrolled
+        <button className="flex items-center gap-2 sm:gap-3 w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors">
+          {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />}
+          <Users className="h-5 w-5 shrink-0" />
+          <span className="text-base sm:text-lg font-semibold">Micro-Campuses</span>
+          <Badge variant="secondary">{campuses.length}</Badge>
+          <span className="text-xs sm:text-sm text-muted-foreground ml-auto hidden xs:inline">
+            {formatNumber(totalEnrollment)} total
           </span>
         </button>
       </CollapsibleTrigger>
       <CollapsibleContent>
-        <div className="grid gap-1 pt-1 pl-8">
+        <div className="grid gap-1 pt-1 pl-2 sm:pl-8">
           {campuses.map(campus => (
             <Card
               key={campus.key}
@@ -231,9 +231,9 @@ function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCa
               onClick={() => onCampusClick(campus.key)}
             >
               <CardContent className="px-3 py-1">
-                <div className="flex items-center justify-between">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
                       <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <p className="font-medium text-sm truncate">
                         {campus.mcLeader || 'Unknown Leader'}
@@ -244,21 +244,21 @@ function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCa
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-5 text-sm shrink-0">
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Enrolled</p>
+                  <div className="grid grid-cols-4 gap-3 sm:gap-5 text-sm">
+                    <div className="sm:text-right">
+                      <p className="text-muted-foreground text-xs sm:text-sm">Enrolled</p>
                       <p className="font-semibold">{formatNumber(campus.totalEnrollment)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Returning</p>
+                    <div className="sm:text-right">
+                      <p className="text-muted-foreground text-xs sm:text-sm">Returning</p>
                       <p className="font-semibold">{formatNumber(campus.returningStudents)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">New</p>
+                    <div className="sm:text-right">
+                      <p className="text-muted-foreground text-xs sm:text-sm">New</p>
                       <p className="font-semibold">{formatNumber(campus.newStudents)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-muted-foreground">Retention</p>
+                    <div className="sm:text-right">
+                      <p className="text-muted-foreground text-xs sm:text-sm">Retention</p>
                       {campus.isNewCampus ? (
                         <p className="font-semibold text-muted-foreground">N/A</p>
                       ) : (
@@ -289,9 +289,9 @@ function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () =>
       onClick={onClick}
     >
       <CardContent className="px-3 py-1">
-        <div className="flex items-center justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-1.5">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
               <p className="font-medium text-sm truncate">{campus.campusName}</p>
               <CampusSizeBadge enrollment={campus.totalEnrollment} />
               {campus.isNewCampus && (
@@ -302,21 +302,21 @@ function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () =>
               <p className="text-xs text-muted-foreground">{campus.mcLeader}</p>
             )}
           </div>
-          <div className="flex items-center gap-5 text-sm shrink-0">
-            <div className="text-right">
-              <p className="text-muted-foreground">Enrolled</p>
+          <div className="grid grid-cols-4 gap-3 sm:gap-5 text-sm">
+            <div className="sm:text-right">
+              <p className="text-muted-foreground text-xs sm:text-sm">Enrolled</p>
               <p className="font-semibold">{formatNumber(campus.totalEnrollment)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-muted-foreground">Returning</p>
+            <div className="sm:text-right">
+              <p className="text-muted-foreground text-xs sm:text-sm">Returning</p>
               <p className="font-semibold">{formatNumber(campus.returningStudents)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-muted-foreground">New</p>
+            <div className="sm:text-right">
+              <p className="text-muted-foreground text-xs sm:text-sm">New</p>
               <p className="font-semibold">{formatNumber(campus.newStudents)}</p>
             </div>
-            <div className="text-right">
-              <p className="text-muted-foreground">Retention</p>
+            <div className="sm:text-right">
+              <p className="text-muted-foreground text-xs sm:text-sm">Retention</p>
               {campus.isNewCampus ? (
                 <p className="font-semibold text-muted-foreground">N/A</p>
               ) : (

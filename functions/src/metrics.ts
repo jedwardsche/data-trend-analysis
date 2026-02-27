@@ -147,14 +147,14 @@ export async function calculateSnapshot(
   metrics.totalNewGrowth = metrics.internalGrowth + metrics.newCampusGrowth;
   metrics.netGrowth = metrics.totalNewGrowth - metrics.midYearWithdrawals;
 
-  // Calculate retention rate
-  if (eligiblePriorYear.length > 0) {
+  // Calculate retention rate: returning students as % of current total enrollment
+  if (metrics.totalEnrollment > 0) {
     metrics.retentionRate = Math.round(
-      (metrics.returningStudents / eligiblePriorYear.length) * 100
+      (metrics.returningStudents / metrics.totalEnrollment) * 100
     );
   }
 
-  // Calculate campus-level retention rates
+  // Calculate campus-level retention rates and detect new campuses
   const priorYearByCampus = new Map<string, number>();
   for (const student of eligiblePriorYear) {
     const count = priorYearByCampus.get(student.campusKey) || 0;
@@ -163,15 +163,12 @@ export async function calculateSnapshot(
 
   for (const [campusKey, campus] of Object.entries(byCampus)) {
     const priorCount = priorYearByCampus.get(campusKey) || 0;
-    if (priorCount > 0) {
+    if (campus.totalEnrollment > 0) {
       campus.retentionRate = Math.round(
-        (campus.returningStudents / priorCount) * 100
+        (campus.returningStudents / campus.totalEnrollment) * 100
       );
-      campus.isNewCampus = false;
-    } else {
-      // No prior year students at this campus — it's a new campus
-      campus.isNewCampus = true;
     }
+    campus.isNewCampus = priorCount === 0;
   }
 
   // Check if this should be the locked Oct 1 count-day snapshot

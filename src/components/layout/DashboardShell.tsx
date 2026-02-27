@@ -29,6 +29,7 @@ import {
 } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
+import { AccessDeniedPage } from '@/pages/AccessDenied';
 
 const navItems = [
   { path: '/dashboard', label: 'Overview', icon: LayoutDashboard, adminOnly: false },
@@ -50,7 +51,29 @@ export function DashboardShell({ selectedYear, onYearChange }: DashboardShellPro
   const location = useLocation();
   const { user, signOut } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { data: overviewData } = useOverviewData(selectedYear);
+  const { data: overviewData, error: overviewError, isLoading: overviewLoading } = useOverviewData(selectedYear);
+
+  // Check if the backend rejected the user as unauthorized
+  const errorCode = (overviewError as { code?: string })?.code ?? '';
+  const errorMessage = (overviewError as { message?: string })?.message ?? '';
+  const isAccessDenied = errorCode.includes('permission-denied') ||
+    errorMessage.includes('Access denied') ||
+    errorMessage.includes('permission-denied');
+
+  // Show loading spinner while we verify access
+  if (overviewLoading && !overviewData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show access denied page if the backend rejected the user
+  if (isAccessDenied) {
+    return <AccessDeniedPage />;
+  }
+
   const isAdmin = overviewData?.isAdmin ?? false;
   const visibleNavItems = navItems.filter(item => !item.adminOnly || isAdmin);
 

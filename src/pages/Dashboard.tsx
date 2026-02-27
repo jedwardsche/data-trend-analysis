@@ -85,11 +85,31 @@ export function DashboardPage() {
 
       {/* Top KPIs */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <MetricCard
-          title={enrollmentLabel}
-          value={m.totalEnrollment}
-          previousValue={pm?.totalEnrollment}
-        />
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              {enrollmentLabel}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{m.totalEnrollment.toLocaleString()}</div>
+            {pm?.totalEnrollment !== undefined && (
+              <p className={`text-xs ${
+                m.totalEnrollment > pm.totalEnrollment ? 'text-success' :
+                m.totalEnrollment < pm.totalEnrollment ? 'text-destructive' : 'text-muted-foreground'
+              }`}>
+                {m.totalEnrollment > pm.totalEnrollment ? '+' : ''}
+                {(((m.totalEnrollment - pm.totalEnrollment) / pm.totalEnrollment) * 100).toFixed(1)}% from previous year
+              </p>
+            )}
+            {fundedStudents != null && (
+              <div className="mt-3 pt-3 border-t">
+                <p className="text-xs text-muted-foreground">Total Funded</p>
+                <p className="text-lg font-semibold">{fundedStudents.toLocaleString()}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
         <MetricCard
           title="Returning Students"
           value={m.returningStudents}
@@ -107,13 +127,6 @@ export function DashboardPage() {
           previousValue={pm?.netGrowth}
           description="New students minus withdrawals"
         />
-        {fundedStudents != null && (
-          <MetricCard
-            title="Total Funded"
-            value={fundedStudents}
-            description="Funded students for this year"
-          />
-        )}
       </div>
 
       {/* Second Row */}

@@ -9,7 +9,6 @@ import {
   Area,
   AreaChart
 } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import type { EnrollmentWeek } from '@/types';
 import { formatNumber, formatDateShort } from '@/lib/formatters';
 
@@ -27,14 +26,9 @@ export function EnrollmentTimeline({ timeline, showCumulative = true }: Enrollme
   }));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Enrollment Timeline</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <div className="h-[300px]">
-          <ResponsiveContainer width="100%" height="100%">
-            {showCumulative ? (
+    <div className="h-[300px]">
+      <ResponsiveContainer width="100%" height="100%">
+        {showCumulative ? (
               <AreaChart data={data}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
@@ -92,9 +86,7 @@ export function EnrollmentTimeline({ timeline, showCumulative = true }: Enrollme
                 />
               </LineChart>
             )}
-          </ResponsiveContainer>
-        </div>
-      </CardContent>
-    </Card>
+      </ResponsiveContainer>
+    </div>
   );
 }

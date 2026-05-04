@@ -7,47 +7,39 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
 } from 'recharts';
 import type { EnrollmentWeek } from '@/types';
 import { formatNumber } from '@/lib/formatters';
 import { getYearColor } from '@/lib/year-colors';
 
-interface CampusCumulativeChartProps {
+interface WeeklyEnrollmentYoYProps {
   timelines: Record<string, EnrollmentWeek[]>;
-  campusKeys: string[];
   height?: number;
 }
 
-/**
- * Format a date string (yyyy-MM-dd) as a short label (e.g., "Aug 4", "Sep 15").
- */
 function shortDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-export function CampusCumulativeChart({
+export function WeeklyEnrollmentYoY({
   timelines,
-  campusKeys,
-  height = 350,
-}: CampusCumulativeChartProps) {
+  height = 400,
+}: WeeklyEnrollmentYoYProps) {
   const { chartData, years } = useMemo(() => {
     const years = Object.keys(timelines).sort().filter(y => y >= '2024-25');
 
-    // Find max week count across all years
     const maxWeeks = Math.max(
-      ...years.map(y => timelines[y]?.length || 0)
+      ...years.map(y => timelines[y]?.length || 0),
     );
 
-    // Build chart data: one row per week number
     const data: Record<string, number | string>[] = [];
 
     for (let w = 1; w <= maxWeeks; w++) {
       const row: Record<string, number | string> = { week: w };
 
-      // Find a date label from any year that has this week number,
-      // preferring the latest year first
+      // Use date label from the latest year that has this week
       let dateLabel: string | null = null;
       for (let i = years.length - 1; i >= 0; i--) {
         const wk = timelines[years[i]]?.find(wk => wk.weekNumber === w);
@@ -61,12 +53,7 @@ export function CampusCumulativeChart({
       for (const year of years) {
         const weekData = timelines[year]?.find(wk => wk.weekNumber === w);
         if (weekData) {
-          // Sum cumulative enrollment across selected campus keys
-          let total = 0;
-          for (const key of campusKeys) {
-            total += weekData.byCampus[key]?.cumulativeEnrollment || 0;
-          }
-          row[year] = total;
+          row[year] = weekData.newEnrollments;
         }
       }
 
@@ -74,7 +61,7 @@ export function CampusCumulativeChart({
     }
 
     return { chartData: data, years };
-  }, [timelines, campusKeys]);
+  }, [timelines]);
 
   if (years.length === 0) {
     return (
@@ -105,11 +92,11 @@ export function CampusCumulativeChart({
             contentStyle={{
               backgroundColor: 'var(--background)',
               border: '1px solid var(--border)',
-              borderRadius: '8px'
+              borderRadius: '8px',
             }}
             formatter={(value: number, name: string) => [
               formatNumber(value),
-              name
+              name,
             ]}
             labelFormatter={(label) => String(label)}
           />
@@ -121,8 +108,11 @@ export function CampusCumulativeChart({
               dataKey={year}
               stroke={getYearColor(year)}
               strokeWidth={2}
-              dot={false}
+              dot={{ fill: getYearColor(year), r: 3 }}
               connectNulls
+              isAnimationActive={true}
+              animationDuration={1500}
+              animationEasing="ease-in-out"
             />
           ))}
         </LineChart>

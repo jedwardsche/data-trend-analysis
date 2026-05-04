@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueries } from '@tanstack/react-query';
 import { getDashboardData, getSnapshotData, getCampuses } from '@/lib/functions';
-import type { Snapshot, AppSettings, CampusMetrics, SnapshotMetrics, EnrollmentWeek, CampusListItem } from '@/types';
+import type { DemographicsResponse } from '@/lib/functions';
+import type { Snapshot, AppSettings, CampusMetrics, SnapshotMetrics, EnrollmentWeek, CampusListItem, DemographicsData } from '@/types';
 
 interface OverviewData {
   snapshot: Snapshot | null;
@@ -120,5 +121,34 @@ export function useCampusList(schoolYear: string) {
     },
     enabled: !!schoolYear,
     staleTime: 10 * 60 * 1000 // 10 minutes
+  });
+}
+
+export function useDemographicsData(schoolYear: string) {
+  return useQuery<DemographicsData>({
+    queryKey: ['dashboard', 'demographics', schoolYear],
+    queryFn: async () => {
+      const result = await getDashboardData({
+        schoolYear,
+        view: 'demographics'
+      });
+      return (result as DemographicsResponse).demographics;
+    },
+    enabled: !!schoolYear,
+    staleTime: 5 * 60 * 1000
+  });
+}
+
+export function useAllYearsDemographics(years: string[]) {
+  return useQueries({
+    queries: years.map(year => ({
+      queryKey: ['dashboard', 'demographics', 'allYears', year],
+      queryFn: async () => {
+        const result = await getDashboardData({ schoolYear: year, view: 'demographics' });
+        return { year, data: (result as DemographicsResponse).demographics };
+      },
+      staleTime: 10 * 60 * 1000,
+      enabled: !!year,
+    })),
   });
 }

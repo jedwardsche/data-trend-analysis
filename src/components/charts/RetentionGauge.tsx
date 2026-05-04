@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatPercent } from '@/lib/formatters';
+import { formatPercent, getRetentionColor } from '@/lib/formatters';
 
 interface RetentionGaugeProps {
   rate: number;
@@ -12,12 +12,7 @@ export function RetentionGauge({ rate, returningStudents, eligibleStudents }: Re
   const circumference = 2 * Math.PI * 45; // radius = 45
   const strokeDashoffset = circumference - (rate / 100) * circumference;
 
-  // Color based on rate
-  const getColor = () => {
-    if (rate >= 80) return 'text-success';
-    if (rate >= 60) return 'text-warning';
-    return 'text-destructive';
-  };
+  const color = getRetentionColor(rate);
 
   return (
     <Card>
@@ -48,17 +43,17 @@ export function RetentionGauge({ rate, returningStudents, eligibleStudents }: Re
               strokeLinecap="round"
               strokeDasharray={circumference}
               strokeDashoffset={strokeDashoffset}
-              className={getColor()}
+              className={color}
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className={`text-2xl font-bold ${getColor()}`}>
+            <span className={`text-2xl font-bold ${color}`}>
               {formatPercent(rate)}
             </span>
           </div>
         </div>
         <p className="text-sm text-muted-foreground mt-4 text-center">
-          {returningStudents.toLocaleString()} of {eligibleStudents.toLocaleString()} eligible students returned
+          {returningStudents.toLocaleString()} of {eligibleStudents.toLocaleString()} prior year students returned
         </p>
       </CardContent>
     </Card>

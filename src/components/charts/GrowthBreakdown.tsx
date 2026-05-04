@@ -102,7 +102,7 @@ export function GrowthBreakdown({
                   <p className="text-lg font-bold leading-tight">
                     {formatNumber(entry.value)}
                     <span className="text-sm font-normal text-muted-foreground ml-1.5">
-                      {formatPercent(entry.percent)}
+                      {formatPercent(entry.percent)} of total
                     </span>
                   </p>
                 </div>

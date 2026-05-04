@@ -74,6 +74,16 @@ export function formatGrowthText(current: number, previous: number): string {
 }
 
 /**
+ * Get the Tailwind color class for a retention rate percentage.
+ * < 20% = destructive (red), 20-50% = warning (yellow), > 50% = success (green)
+ */
+export function getRetentionColor(rate: number): string {
+  if (rate > 50) return 'text-success';
+  if (rate >= 20) return 'text-warning';
+  return 'text-destructive';
+}
+
+/**
  * Resolve a fundingByYear entry to a total dollar amount.
  * Handles both legacy format (plain number) and new format ({ students, perStudentCost }).
  */

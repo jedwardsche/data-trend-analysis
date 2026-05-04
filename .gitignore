@@ -1,1 +1,30 @@
+# Dependencies
 node_modules
+
+# Build output
+dist
+functions/lib
+
+# Logs / debug
+*.log
+firestore-debug.log
+firebase-debug.log
+
+# Local Firebase state
+.firebase
+
+# Process / pid files
+.pids_*
+
+# Editor / OS
+.DS_Store
+.vscode/settings.json
+.cursor/agents
+
+# Tooling caches
+**/tsconfig.tsbuildinfo
+
+# Local data files (FERPA — student records must not be committed)
+CHE_2022-23_students.csv
+CHE_Nov_2022_attendance.pdf
+CHE_Nov_2022_attendance.xlsx

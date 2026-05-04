@@ -34,6 +34,7 @@ export interface StudentTruthFieldMapping {
   created: string;
   mcLeader?: string;
   campusFromTruth?: string;
+  gradeLevel?: string;
   // Attendance rollup fields (from Student Truth → Classes)
   s1TotalPresentDays?: string;
   s2TotalPresentDays?: string;
@@ -43,7 +44,21 @@ export interface StudentTruthFieldMapping {
 
 export interface AirtableTableConfig {
   tableIdOrName: string;
-  fields: AirtableFieldMapping | AttendanceFieldMapping | AbsenceFieldMapping | StudentTruthFieldMapping;
+  fields: AirtableFieldMapping | AttendanceFieldMapping | AbsenceFieldMapping | StudentTruthFieldMapping | UnenrolledStudentFieldMapping | TruthFieldMapping;
+}
+
+export interface UnenrolledStudentFieldMapping {
+  studentLink: string;
+  went: string;
+}
+
+export interface TruthFieldMapping {
+  name: string;
+  schoolYear: string;
+  campusName: string;
+  mcLeader: string;
+  requestedStudents: string;
+  status: string;
 }
 
 export interface AirtableBaseConfig {
@@ -56,6 +71,8 @@ export interface AirtableBaseConfig {
     attendance?: AirtableTableConfig;
     absences?: AirtableTableConfig;
     campuses?: AirtableTableConfig;
+    unenrolledStudent?: AirtableTableConfig;
+    truth?: AirtableTableConfig;
   };
   attendanceMode: 'presence' | 'absence';
 }
@@ -86,6 +103,23 @@ export interface StudentRecord {
   isVerifiedTransfer: boolean;
   isGraduate: boolean;
   syncedAt: string;
+  // Demographics
+  gender?: string;
+  race?: string;
+  ethnicity?: string;
+  primaryLanguage?: string;
+  homeLanguage?: string;
+  gradeLevel?: string;
+  priorEducationalSetting?: string;
+  isMilitary?: string;
+  isHomeless?: string;
+  isImmigrant?: string;
+  exitDestination?: string;
+  // Address
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
 }
 
 export interface CampusMetrics {
@@ -95,9 +129,13 @@ export interface CampusMetrics {
   returningStudents: number;
   newStudents: number;
   retentionRate: number;
+  eligiblePriorYear: number;
   nonStarters: number;
   midYearWithdrawals: number;
   attendanceRate: number;
+  isNewCampus?: boolean;
+  requestedStudents?: number;
+  status?: string;
 }
 
 export interface SnapshotMetrics {
@@ -105,6 +143,7 @@ export interface SnapshotMetrics {
   returningStudents: number;
   newStudentsReturningCampuses: number;
   retentionRate: number;
+  eligiblePriorYear: number;
   nonStarters: number;
   midYearWithdrawals: number;
   verifiedTransfers: number;
@@ -113,6 +152,7 @@ export interface SnapshotMetrics {
   newCampusGrowth: number;
   totalNewGrowth: number;
   netGrowth: number;
+  requestedStudents?: number;
 }
 
 export interface Snapshot {
@@ -150,6 +190,7 @@ export interface AppSettings {
   currentSchoolYear: string;
   activeSchoolYears: string[];
   fundingByYear?: Record<string, number | YearFunding>;
+  nonStartersByYear?: Record<string, number>;
 }
 
 export interface AllowedUser {
@@ -163,7 +204,7 @@ export interface AllowedUser {
  */
 export interface GetDashboardDataRequest {
   schoolYear: string;
-  view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline';
+  view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline' | 'demographics';
   campusKey?: string;
 }
 
@@ -294,4 +335,15 @@ export function createCampusKey(campusName: string, mcLeader: string): string {
 
 export function isActiveEnrollment(status: string): boolean {
   return ACTIVE_ENROLLMENT_STATUSES.includes(status as ActiveEnrollmentStatus);
+}
+
+/**
+ * Check if a campus should be excluded from all metrics and display.
+ * Filters out sandbox and training campuses.
+ */
+export function isExcludedCampus(campusName: string, mcLeader: string): boolean {
+  const name = (campusName || '').toLowerCase();
+  const leader = (mcLeader || '').toLowerCase();
+  return name.includes('sandbox') || name.includes('training') ||
+         leader.includes('sandbox') || leader.includes('training');
 }

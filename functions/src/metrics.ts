@@ -6,7 +6,9 @@ import {
   CampusMetrics,
   EnrollmentWeek,
   AppSettings,
-  isActiveEnrollment
+  isActiveEnrollment,
+  createCampusKey,
+  isExcludedCampus
 } from './types';
 import { format, startOfWeek, parseISO } from 'date-fns';
 
@@ -24,7 +26,8 @@ export async function calculateSnapshot(
     .where('schoolYear', '==', schoolYear)
     .get();
 
-  const students = studentDocs.docs.map(doc => doc.data() as StudentRecord);
+  const students = studentDocs.docs.map(doc => doc.data() as StudentRecord)
+    .filter(s => !isExcludedCampus(s.campus, s.mcLeader));
 
   // Fetch prior year students for retention calculation
   const yearParts = schoolYear.split('-').map(p => parseInt(p));
@@ -34,11 +37,20 @@ export async function calculateSnapshot(
     .where('schoolYear', '==', priorYear)
     .get();
 
-  const priorYearStudents = priorYearDocs.docs.map(doc => doc.data() as StudentRecord);
+  const priorYearStudents = priorYearDocs.docs.map(doc => doc.data() as StudentRecord)
+    .filter(s => !isExcludedCampus(s.campus, s.mcLeader));
 
-  // Calculate eligible prior year students (excluding graduates)
-  const eligiblePriorYear = priorYearStudents.filter(s =>
-    !s.isGraduate && isActiveEnrollment(s.enrollmentStatus)
+  // Prior year actively enrolled students — used as the denominator for retention rate.
+  // Retention = returning students (this year) / total enrollment (last year).
+  // Exclude graduates (12th grade / 12th grade second year) since they aren't expected to return.
+  const isGraduatingGrade = (grade: string | undefined): boolean => {
+    if (!grade) return false;
+    const lower = grade.toLowerCase().trim();
+    return /^12(th)?\b/.test(lower);
+  };
+
+  const priorYearActiveStudents = priorYearStudents.filter(s =>
+    isActiveEnrollment(s.enrollmentStatus) && !isGraduatingGrade(s.gradeLevel)
   );
 
   // Initialize metrics
@@ -47,6 +59,7 @@ export async function calculateSnapshot(
     returningStudents: 0,
     newStudentsReturningCampuses: 0,
     retentionRate: 0,
+    eligiblePriorYear: priorYearActiveStudents.length,
     nonStarters: 0,
     midYearWithdrawals: 0,
     verifiedTransfers: 0,
@@ -73,6 +86,7 @@ export async function calculateSnapshot(
         returningStudents: 0,
         newStudents: 0,
         retentionRate: 0,
+        eligiblePriorYear: 0,
         nonStarters: 0,
         midYearWithdrawals: 0,
         attendanceRate: 0
@@ -124,7 +138,8 @@ export async function calculateSnapshot(
   // in the current year, so they still appear on the Campuses page (even if
   // closed or not yet enrolling for the new year).
   for (const priorStudent of priorYearStudents) {
-    if (priorStudent.campusKey && !byCampus[priorStudent.campusKey]) {
+    if (priorStudent.campusKey && !byCampus[priorStudent.campusKey] &&
+        !isExcludedCampus(priorStudent.campus, priorStudent.mcLeader)) {
       byCampus[priorStudent.campusKey] = {
         campusName: priorStudent.campus,
         mcLeader: priorStudent.mcLeader,
@@ -132,10 +147,104 @@ export async function calculateSnapshot(
         returningStudents: 0,
         newStudents: 0,
         retentionRate: 0,
+        eligiblePriorYear: 0,
         nonStarters: 0,
         midYearWithdrawals: 0,
         attendanceRate: 0
       };
+    }
+  }
+
+  // Seed campuses from Truth table roster so campuses with zero students still appear.
+  // Only filter by active status for the current year — past years keep existing behavior.
+  const ACTIVE_CAMPUS_STATUSES = ['open', 'nearing capacity', 'waitlist', 'wait list', 'closed'];
+  const rosterDoc = await db.collection('config').doc(`campusRoster-${schoolYear}`).get();
+  // Track which roster leader maps to each byCampus key (for isNewCampus detection)
+  const campusKeyToRosterLeader = new Map<string, string>();
+  if (rosterDoc.exists) {
+    const roster = rosterDoc.data() as Record<string, { campusName: string; mcLeader: string; status: string; requestedStudents: number }>;
+    const isCurrentYear = schoolYear === settings.currentSchoolYear;
+
+    // Build lookups from existing byCampus to match roster entries whose keys differ
+    // due to MC leader consolidation (multi-name → single name in student sync).
+    // Map: normalized campus name → existing campusKey(s)
+    const existingByCampusName = new Map<string, string[]>();
+    for (const [key, campus] of Object.entries(byCampus)) {
+      const normalizedName = campus.campusName.toLowerCase().trim();
+      if (!existingByCampusName.has(normalizedName)) {
+        existingByCampusName.set(normalizedName, []);
+      }
+      existingByCampusName.get(normalizedName)!.push(key);
+    }
+
+    for (const [rosterKey, entry] of Object.entries(roster)) {
+      // Exclude sandbox and training campuses
+      if (isExcludedCampus(entry.campusName, entry.mcLeader)) continue;
+
+      // For the current year, only include campuses with an active status
+      if (isCurrentYear) {
+        const statusLower = (entry.status || '').toLowerCase().trim();
+        if (!ACTIVE_CAMPUS_STATUSES.includes(statusLower)) continue;
+      }
+
+      const rosterLeader = entry.mcLeader.includes(',')
+        ? entry.mcLeader.split(',')[0].trim()
+        : entry.mcLeader;
+
+      // Try to find an existing byCampus entry that matches this roster campus.
+      // The roster key may differ from the student-derived key because the Truth table
+      // Staff field often has multiple comma-separated names while the student sync
+      // consolidates to a single name.
+      let matchedKey: string | null = null;
+
+      // 1. Exact match on roster key
+      if (byCampus[rosterKey]) {
+        matchedKey = rosterKey;
+      }
+
+      // 2. Normalize mcLeader (take first comma-separated name) and try that key
+      if (!matchedKey && entry.mcLeader.includes(',')) {
+        const normalizedKey = createCampusKey(entry.campusName, rosterLeader);
+        if (byCampus[normalizedKey]) {
+          matchedKey = normalizedKey;
+        }
+      }
+
+      // 3. For non-micro campuses, match by campus name alone if there's exactly one match
+      if (!matchedKey) {
+        const normalizedName = entry.campusName.toLowerCase().trim();
+        const candidates = existingByCampusName.get(normalizedName) || [];
+        if (candidates.length === 1) {
+          matchedKey = candidates[0];
+        }
+      }
+
+      if (matchedKey) {
+        // Campus already exists — just apply status and track leader
+        byCampus[matchedKey].status = entry.status || '';
+        campusKeyToRosterLeader.set(matchedKey, rosterLeader);
+      } else {
+        // Truly new campus with no students yet — create entry with normalized key
+        const newKey = createCampusKey(entry.campusName, rosterLeader);
+
+        // Final guard: check the normalized key doesn't already exist
+        if (!byCampus[newKey]) {
+          byCampus[newKey] = {
+            campusName: entry.campusName,
+            mcLeader: rosterLeader,
+            totalEnrollment: 0,
+            returningStudents: 0,
+            newStudents: 0,
+            retentionRate: 0,
+            eligiblePriorYear: 0,
+            nonStarters: 0,
+            midYearWithdrawals: 0,
+            attendanceRate: 0
+          };
+        }
+        byCampus[newKey].status = entry.status || '';
+        campusKeyToRosterLeader.set(newKey, rosterLeader);
+      }
     }
   }
 
@@ -144,26 +253,108 @@ export async function calculateSnapshot(
   metrics.totalNewGrowth = metrics.internalGrowth + metrics.newCampusGrowth;
   metrics.netGrowth = metrics.totalNewGrowth - metrics.midYearWithdrawals;
 
-  // Calculate retention rate
-  if (eligiblePriorYear.length > 0) {
+  // Apply requested students from Truth table (stored during Airtable sync)
+  const requestedDoc = await db.collection('config').doc(`requestedStudents-${schoolYear}`).get();
+  if (requestedDoc.exists) {
+    const requestedData = requestedDoc.data() as Record<string, number>;
+    // Sum ALL requested students from Truth table (including campuses with no enrollments yet)
+    let totalRequestedStudents = 0;
+    for (const [, count] of Object.entries(requestedData)) {
+      if (count && count > 0) {
+        totalRequestedStudents += count;
+      }
+    }
+    // Build a fallback lookup by campus name only (without MC leader) for non-exact matches
+    // Truth table keys often include MC leader names that don't match enrollment data
+    const byCampusName = new Map<string, number>();
+    for (const [key, count] of Object.entries(requestedData)) {
+      if (count && count > 0) {
+        const campusName = key.split('|')[0];
+        byCampusName.set(campusName, (byCampusName.get(campusName) || 0) + count);
+      }
+    }
+    // Apply per-campus requested counts: try exact key first, then fallback to campus name
+    for (const [campusKey, campus] of Object.entries(byCampus)) {
+      const requested = requestedData[campusKey];
+      if (requested && requested > 0) {
+        campus.requestedStudents = requested;
+      } else {
+        const campusName = campusKey.split('|')[0];
+        const fallback = byCampusName.get(campusName);
+        if (fallback && fallback > 0) {
+          campus.requestedStudents = fallback;
+        }
+      }
+    }
+    if (totalRequestedStudents > 0) {
+      metrics.requestedStudents = totalRequestedStudents;
+    }
+  }
+
+  // Calculate retention rate: returning students as % of prior year total enrollment
+  if (priorYearActiveStudents.length > 0) {
     metrics.retentionRate = Math.round(
-      (metrics.returningStudents / eligiblePriorYear.length) * 100
+      (metrics.returningStudents / priorYearActiveStudents.length) * 100
     );
   }
 
-  // Calculate campus-level retention rates
+  // Calculate campus-level retention rates and detect new campuses
   const priorYearByCampus = new Map<string, number>();
-  for (const student of eligiblePriorYear) {
+  for (const student of priorYearActiveStudents) {
     const count = priorYearByCampus.get(student.campusKey) || 0;
     priorYearByCampus.set(student.campusKey, count + 1);
   }
 
+  // Load prior year roster from Truth table for authoritative isNewCampus detection.
+  // A campus is "new" if its MC leader didn't have a Truth record in the prior year.
+  const priorRosterDoc = await db.collection('config').doc(`campusRoster-${priorYear}`).get();
+  const priorYearLeaders = new Set<string>();
+  if (priorRosterDoc.exists) {
+    const priorRoster = priorRosterDoc.data() as Record<string, { campusName: string; mcLeader: string; status: string; requestedStudents: number }>;
+    for (const entry of Object.values(priorRoster)) {
+      if (isExcludedCampus(entry.campusName, entry.mcLeader)) continue;
+      const leaderRaw = (entry.mcLeader || '').trim();
+      if (leaderRaw) {
+        // Add full name and each individual name (handles comma-separated multi-name leaders)
+        priorYearLeaders.add(leaderRaw.toLowerCase());
+        if (leaderRaw.includes(',')) {
+          for (const name of leaderRaw.split(',')) {
+            const trimmed = name.trim().toLowerCase();
+            if (trimmed) priorYearLeaders.add(trimmed);
+          }
+        }
+      }
+    }
+  }
+
   for (const [campusKey, campus] of Object.entries(byCampus)) {
     const priorCount = priorYearByCampus.get(campusKey) || 0;
-    if (priorCount > 0) {
+    // Use the larger of priorCount and returningStudents as denominator so
+    // retention never exceeds 100%.  Students who transfer between MC leaders
+    // inflate returningStudents above priorCount for the receiving campus.
+    const effectiveDenominator = Math.max(priorCount, campus.returningStudents);
+    campus.eligiblePriorYear = effectiveDenominator;
+    if (effectiveDenominator > 0) {
       campus.retentionRate = Math.round(
-        (campus.returningStudents / priorCount) * 100
+        (campus.returningStudents / effectiveDenominator) * 100
       );
+    }
+
+    // Detect new campuses using prior year Truth table roster.
+    // A campus is new if its leader didn't have a Truth record in the prior year.
+    if (priorYearLeaders.size > 0) {
+      // Use roster-matched leader if available (authoritative), fall back to byCampus mcLeader
+      const leader = campusKeyToRosterLeader.get(campusKey) || campus.mcLeader;
+      const normalizedLeader = (leader || '').toLowerCase().trim();
+      if (normalizedLeader) {
+        campus.isNewCampus = !priorYearLeaders.has(normalizedLeader);
+      } else {
+        // No leader info available — fall back to student-based prior year check
+        campus.isNewCampus = priorCount === 0;
+      }
+    } else {
+      // No prior year roster — fall back to student-based check
+      campus.isNewCampus = priorCount === 0;
     }
   }
 
@@ -247,7 +438,8 @@ export async function calculateEnrollmentTimeline(
 
   const students = studentDocs.docs
     .map(doc => doc.data() as StudentRecord)
-    .filter(s => isActiveEnrollment(s.enrollmentStatus) && s.enrolledDate);
+    .filter(s => isActiveEnrollment(s.enrollmentStatus) && s.enrolledDate &&
+      !isExcludedCampus(s.campus, s.mcLeader));
 
   // Group students by enrollment week
   const weeklyData = new Map<string, {

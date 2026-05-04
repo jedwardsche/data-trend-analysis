@@ -4,7 +4,8 @@ import {
   Snapshot,
   EnrollmentWeek,
   StudentRecord,
-  AppSettings
+  AppSettings,
+  isExcludedCampus
 } from './types';
 
 /**
@@ -240,6 +241,7 @@ export async function generateCSVExport(
 
       for (const doc of studentDocs.docs) {
         const s = doc.data() as StudentRecord;
+        if (isExcludedCampus(s.campus, s.mcLeader)) continue;
         csv += `"${s.firstName}","${s.lastName}","${s.campus}","${s.mcLeader}","${s.enrollmentStatus}","${s.enrolledDate}"\n`;
       }
 

@@ -6,6 +6,7 @@ export interface SnapshotMetrics {
   returningStudents: number;
   newStudentsReturningCampuses: number;
   retentionRate: number;
+  eligiblePriorYear: number;
   nonStarters: number;
   midYearWithdrawals: number;
   verifiedTransfers: number;
@@ -14,6 +15,7 @@ export interface SnapshotMetrics {
   newCampusGrowth: number;
   totalNewGrowth: number;
   netGrowth: number;
+  requestedStudents?: number;
 }
 
 /**
@@ -26,9 +28,12 @@ export interface CampusMetrics {
   returningStudents: number;
   newStudents: number;
   retentionRate: number;
+  eligiblePriorYear: number;
   nonStarters: number;
   midYearWithdrawals: number;
   attendanceRate: number;
+  isNewCampus?: boolean;
+  requestedStudents?: number;
 }
 
 /**
@@ -75,6 +80,7 @@ export interface AppSettings {
   currentSchoolYear: string;
   activeSchoolYears: string[];
   fundingByYear?: Record<string, number | YearFunding>;
+  nonStartersByYear?: Record<string, number>;
   projectedStudents?: number;
 }
 
@@ -94,4 +100,41 @@ export interface CampusListItem {
   key: string;
   name: string;
   mcLeader: string;
+}
+
+/**
+ * Demographics
+ */
+export interface DemographicBreakdown {
+  category: string;
+  count: number;
+  percent: number;
+}
+
+export interface ZipCodePoint {
+  zipCode: string;
+  lat: number;
+  lng: number;
+  count: number;
+}
+
+export interface CityCount {
+  city: string;
+  count: number;
+}
+
+export interface DemographicsData {
+  totalStudents: number;
+  gender: DemographicBreakdown[];
+  race: DemographicBreakdown[];
+  ethnicity: DemographicBreakdown[];
+  primaryLanguage: DemographicBreakdown[];
+  gradeLevel: DemographicBreakdown[];
+  priorEducationalSetting: DemographicBreakdown[];
+  isMilitary: DemographicBreakdown[];
+  isHomeless: DemographicBreakdown[];
+  isImmigrant: DemographicBreakdown[];
+  exitDestination: DemographicBreakdown[];
+  zipCodePoints: ZipCodePoint[];
+  cityBreakdown: CityCount[];
 }

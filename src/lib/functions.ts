@@ -6,13 +6,42 @@ import type {
   AppSettings,
   CampusMetrics,
   SnapshotMetrics,
-  AllowedUser
+  AllowedUser,
+  DemographicsData
 } from '@/types';
+
+// Check email access and provider (no auth required)
+interface CheckEmailAccessResult {
+  allowed: boolean;
+  hasGoogleProvider: boolean;
+}
+
+export async function checkEmailAccess(email: string): Promise<CheckEmailAccessResult> {
+  const fn = httpsCallable<{ email: string }, CheckEmailAccessResult>(
+    functions,
+    'checkEmailAccess'
+  );
+  const result = await fn({ email });
+  return result.data;
+}
+
+// Send sign-in link via server-side generation + Lambda email service
+export async function sendSignInLink(
+  email: string,
+  redirectUrl: string
+): Promise<{ success: boolean; message: string }> {
+  const fn = httpsCallable<
+    { email: string; redirectUrl: string },
+    { success: boolean; message: string }
+  >(functions, 'sendSignInLink');
+  const result = await fn({ email, redirectUrl });
+  return result.data;
+}
 
 // Dashboard data
 interface GetDashboardDataRequest {
   schoolYear: string;
-  view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline';
+  view: 'overview' | 'campus' | 'yoy' | 'timeline' | 'campusYoYTimeline' | 'demographics';
   campusKey?: string;
 }
 
@@ -41,10 +70,16 @@ interface CampusYoYTimelineResponse {
   settings: AppSettings;
 }
 
+export interface DemographicsResponse {
+  demographics: DemographicsData;
+}
+
+type DashboardDataResponse = OverviewResponse | CampusResponse | YoYResponse | TimelineResponse | CampusYoYTimelineResponse | DemographicsResponse;
+
 export async function getDashboardData(
   request: GetDashboardDataRequest
-): Promise<OverviewResponse | CampusResponse | YoYResponse | TimelineResponse | CampusYoYTimelineResponse> {
-  const fn = httpsCallable<GetDashboardDataRequest, OverviewResponse | CampusResponse | YoYResponse | TimelineResponse | CampusYoYTimelineResponse>(
+): Promise<DashboardDataResponse> {
+  const fn = httpsCallable<GetDashboardDataRequest, DashboardDataResponse>(
     functions,
     'getDashboardData'
   );
@@ -140,6 +175,34 @@ export async function exportCSV(
   const fn = httpsCallable<ExportCSVRequest, ExportCSVResponse>(
     functions,
     'exportCSV'
+  );
+  const result = await fn(request);
+  return result.data;
+}
+
+// Import historical data (admin only)
+interface ImportHistoricalDataRequest {
+  csvText: string;
+  schoolYear: string;
+}
+
+interface ImportHistoricalDataResponse {
+  success: boolean;
+  message: string;
+  details: {
+    studentsCreated: number;
+    studentsWithDemographics: number;
+    returningIn2324: number;
+  };
+}
+
+export async function importHistoricalData(
+  request: ImportHistoricalDataRequest
+): Promise<ImportHistoricalDataResponse> {
+  const fn = httpsCallable<ImportHistoricalDataRequest, ImportHistoricalDataResponse>(
+    functions,
+    'importHistorical',
+    { timeout: 300_000 }
   );
   const result = await fn(request);
   return result.data;

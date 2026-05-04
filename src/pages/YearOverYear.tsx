@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useMemo } from "react";
+import { useOutletContext } from "react-router-dom";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -8,13 +8,27 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@/components/ui/table';
-import { Skeleton } from '@/components/ui/skeleton';
-import { useYoYData, useAllYearsTimelineData } from '@/hooks/useDashboardData';
-import { formatNumber, formatPercent, formatPercentChange } from '@/lib/formatters';
-import { Badge } from '@/components/ui/badge';
-import { CampusCumulativeChart } from '@/components/charts/CampusCumulativeChart';
-import { getCampusKeysForType } from '@/lib/campus-utils';
+} from "@/components/ui/table";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useYoYData, useAllYearsTimelineData } from "@/hooks/useDashboardData";
+import {
+  formatNumber,
+  formatPercent,
+  formatPercentChange,
+} from "@/lib/formatters";
+import { CampusCumulativeChart } from "@/components/charts/CampusCumulativeChart";
+import { WeeklyEnrollmentYoY } from "@/components/charts/WeeklyEnrollmentYoY";
+import { CampusRetentionHeatmap } from "@/components/charts/CampusRetentionHeatmap";
+import { getCampusKeysForType } from "@/lib/campus-utils";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  ResponsiveContainer,
+  LabelList,
+} from "recharts";
 
 interface OutletContext {
   selectedYear: string;
@@ -23,7 +37,8 @@ interface OutletContext {
 export function YearOverYearPage() {
   const { selectedYear } = useOutletContext<OutletContext>();
   const { data, isLoading, error } = useYoYData(selectedYear);
-  const { data: timelineData, isLoading: timelineLoading } = useAllYearsTimelineData();
+  const { data: timelineData, isLoading: timelineLoading } =
+    useAllYearsTimelineData();
 
   // Derive campus keys by type from the most recent snapshot
   const { branchKeys, microKeys } = useMemo(() => {
@@ -34,10 +49,13 @@ export function YearOverYearPage() {
     const allMicro = new Set<string>();
 
     for (const snapshot of Object.values(data.snapshots)) {
-      for (const key of getCampusKeysForType(snapshot.byCampus, 'branch')) {
+      for (const key of getCampusKeysForType(snapshot.byCampus, "branch")) {
         allBranch.add(key);
       }
-      for (const key of getCampusKeysForType(snapshot.byCampus, 'micro-campus')) {
+      for (const key of getCampusKeysForType(
+        snapshot.byCampus,
+        "micro-campus",
+      )) {
         allMicro.add(key);
       }
     }
@@ -61,7 +79,7 @@ export function YearOverYearPage() {
   }
 
   const { snapshots, settings } = data;
-  const years = settings.activeSchoolYears.filter(y => snapshots[y]);
+  const years = settings.activeSchoolYears.filter((y) => snapshots[y]);
 
   return (
     <div className="space-y-6">
@@ -75,10 +93,22 @@ export function YearOverYearPage() {
       {/* Enrollment Trend (embedded) */}
       <iframe
         src="https://enroll.che.school/embed/cumulative-enrollment"
-        className="w-full border-0"
-        style={{ height: '55vh' }}
+        className="w-full border-0 rounded-lg"
+        style={{ height: "525px" }}
         title="Cumulative Enrollment"
       />
+
+      {/* Enrollments by Week */}
+      {timelineData?.timelines && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Enrollments by Week</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <WeeklyEnrollmentYoY timelines={timelineData.timelines} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Campus Type Cumulative Charts */}
       {timelineData?.timelines && (
@@ -99,7 +129,7 @@ export function YearOverYearPage() {
           {microKeys.length > 0 && (
             <Card>
               <CardHeader>
-                <CardTitle>Micro-Campus Enrollment</CardTitle>
+                <CardTitle>Campus Enrollment</CardTitle>
               </CardHeader>
               <CardContent>
                 <CampusCumulativeChart
@@ -119,22 +149,63 @@ export function YearOverYearPage() {
         </div>
       )}
 
+      {/* Retention Rate Chart */}
+      {(() => {
+        const retentionData = years
+          .filter(y => (snapshots[y].metrics.eligiblePriorYear ?? 0) > 0)
+          .map(y => ({
+            year: y,
+            rate: snapshots[y].metrics.retentionRate,
+          }));
+        if (retentionData.length === 0) return null;
+
+        return (
+          <Card>
+            <CardHeader>
+              <CardTitle>Retention Rate by Year</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={retentionData} margin={{ top: 20, right: 20, bottom: 5, left: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                    <XAxis dataKey="year" tick={{ fontSize: 13 }} />
+                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 13 }} />
+                    <Bar dataKey="rate" radius={[4, 4, 0, 0]} maxBarSize={80} fill="var(--success)">
+                      <LabelList
+                        dataKey="rate"
+                        position="top"
+                        formatter={(v: number) => `${v}%`}
+                        style={{ fontSize: 13, fontWeight: 600 }}
+                      />
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
+
+      {/* Retention Rate by Campus */}
+      <CampusRetentionHeatmap snapshots={snapshots} years={years} />
+
       {/* Comparison Table */}
       <Card>
         <CardHeader>
           <CardTitle>Key Metrics Comparison</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Metric</TableHead>
-                {years.map(year => (
-                  <TableHead key={year} className="text-right">
+                <TableHead className="whitespace-nowrap">Metric</TableHead>
+                {years.map((year) => (
+                  <TableHead
+                    key={year}
+                    className="text-right whitespace-nowrap"
+                  >
                     {year}
-                    {year === settings.currentSchoolYear && (
-                      <Badge variant="outline" className="ml-2">Current</Badge>
-                    )}
                   </TableHead>
                 ))}
               </TableRow>
@@ -151,17 +222,33 @@ export function YearOverYearPage() {
                 years={years}
                 getValue={(y) => snapshots[y].metrics.returningStudents}
                 format="number"
+                getDisplayOverride={(y) =>
+                  (snapshots[y].metrics.eligiblePriorYear ?? 0) === 0
+                    ? "N/A"
+                    : null
+                }
               />
               <MetricRow
                 label="Retention Rate"
                 years={years}
                 getValue={(y) => snapshots[y].metrics.retentionRate}
                 format="percent"
+                getDisplayOverride={(y) =>
+                  (snapshots[y].metrics.eligiblePriorYear ?? 0) === 0
+                    ? "N/A"
+                    : null
+                }
               />
               <MetricRow
                 label="Internal Growth"
                 years={years}
-                getValue={(y) => snapshots[y].metrics.internalGrowth}
+                getValue={(y) => {
+                  // First year: all students are new, so internal growth = total enrollment
+                  if ((snapshots[y].metrics.eligiblePriorYear ?? 0) === 0) {
+                    return snapshots[y].metrics.totalEnrollment;
+                  }
+                  return snapshots[y].metrics.internalGrowth;
+                }}
                 format="number"
               />
               <MetricRow
@@ -179,7 +266,10 @@ export function YearOverYearPage() {
               <MetricRow
                 label="Non-Starters"
                 years={years}
-                getValue={(y) => snapshots[y].metrics.nonStarters}
+                getValue={(y) =>
+                  settings.nonStartersByYear?.[y] ??
+                  snapshots[y].metrics.nonStarters
+                }
                 format="number"
                 invertColor
               />
@@ -193,7 +283,12 @@ export function YearOverYearPage() {
               <MetricRow
                 label="Total Attrition"
                 years={years}
-                getValue={(y) => snapshots[y].metrics.attritionTotal}
+                getValue={(y) => {
+                  const nonStarters =
+                    settings.nonStartersByYear?.[y] ??
+                    snapshots[y].metrics.nonStarters;
+                  return nonStarters + snapshots[y].metrics.midYearWithdrawals;
+                }}
                 format="number"
                 invertColor
               />
@@ -209,38 +304,51 @@ export function YearOverYearPage() {
       </Card>
 
       {/* Growth Analysis */}
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         {years.slice(1).map((year, index) => {
           const current = snapshots[year].metrics;
           const previous = snapshots[years[index]].metrics;
-          const enrollmentGrowth = current.totalEnrollment - previous.totalEnrollment;
-          const growthPercent = ((enrollmentGrowth / previous.totalEnrollment) * 100).toFixed(1);
+          const enrollmentGrowth =
+            current.totalEnrollment - previous.totalEnrollment;
+          const growthPercent = (
+            (enrollmentGrowth / previous.totalEnrollment) *
+            100
+          ).toFixed(1);
 
           return (
             <Card key={year}>
-              <CardHeader>
-                <CardTitle className="text-lg">
+              <CardHeader className="px-4 py-3 pb-1">
+                <CardTitle className="text-base">
                   {years[index]} → {year}
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="px-4 pb-4 pt-2 space-y-3">
                 <div>
-                  <p className="text-sm text-muted-foreground">Enrollment Growth</p>
-                  <p className="text-2xl font-bold">
-                    {enrollmentGrowth > 0 ? '+' : ''}{formatNumber(enrollmentGrowth)}
-                    <span className="text-lg ml-2 text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
+                    Enrollment Growth
+                  </p>
+                  <p className="text-xl font-bold">
+                    {enrollmentGrowth > 0 ? "+" : ""}
+                    {formatNumber(enrollmentGrowth)}
+                    <span className="text-sm ml-1.5 text-muted-foreground">
                       ({growthPercent}%)
                     </span>
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-4 text-sm">
+                <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
-                    <p className="text-muted-foreground">Retention Rate</p>
-                    <p className="font-medium">{formatPercent(current.retentionRate)}</p>
+                    <p className="text-xs text-muted-foreground">Retention Rate</p>
+                    <p className="font-medium">
+                      {(current.eligiblePriorYear ?? 0) > 0
+                        ? formatPercent(current.retentionRate)
+                        : "N/A"}
+                    </p>
                   </div>
                   <div>
-                    <p className="text-muted-foreground">Net Growth</p>
-                    <p className="font-medium">{formatNumber(current.netGrowth)}</p>
+                    <p className="text-xs text-muted-foreground">Net Growth</p>
+                    <p className="font-medium">
+                      {formatNumber(current.netGrowth)}
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -256,33 +364,59 @@ interface MetricRowProps {
   label: string;
   years: string[];
   getValue: (year: string) => number;
-  format: 'number' | 'percent';
+  format: "number" | "percent";
   invertColor?: boolean;
+  /** Override display for specific years (e.g., "N/A" for first year retention) */
+  getDisplayOverride?: (year: string) => string | null;
 }
 
-function MetricRow({ label, years, getValue, format, invertColor = false }: MetricRowProps) {
+function MetricRow({
+  label,
+  years,
+  getValue,
+  format,
+  invertColor = false,
+  getDisplayOverride,
+}: MetricRowProps) {
   return (
     <TableRow>
-      <TableCell className="font-medium">{label}</TableCell>
+      <TableCell className="font-medium whitespace-nowrap">{label}</TableCell>
       {years.map((year, index) => {
+        const override = getDisplayOverride?.(year);
+        if (override !== null && override !== undefined) {
+          return (
+            <TableCell
+              key={year}
+              className="text-right whitespace-nowrap text-muted-foreground"
+            >
+              {override}
+            </TableCell>
+          );
+        }
+
         const value = getValue(year);
         const prevValue = index > 0 ? getValue(years[index - 1]) : null;
 
-        const formattedValue = format === 'percent'
-          ? formatPercent(value)
-          : formatNumber(value);
+        const formattedValue =
+          format === "percent" ? formatPercent(value) : formatNumber(value);
 
-        const changeText = prevValue !== null
-          ? formatPercentChange(value, prevValue)
-          : null;
+        // Only show % change for years that have a prior year
+        const changeText =
+          prevValue !== null && index > 0
+            ? formatPercentChange(value, prevValue)
+            : null;
 
         const isPositive = prevValue !== null && value > prevValue;
         const changeColor = invertColor
-          ? (isPositive ? 'text-destructive' : 'text-success')
-          : (isPositive ? 'text-success' : 'text-destructive');
+          ? isPositive
+            ? "text-chart-3"
+            : "text-success"
+          : isPositive
+            ? "text-success"
+            : "text-chart-3";
 
         return (
-          <TableCell key={year} className="text-right">
+          <TableCell key={year} className="text-right whitespace-nowrap">
             <span>{formattedValue}</span>
             {changeText && (
               <span className={`text-xs ml-2 ${changeColor}`}>

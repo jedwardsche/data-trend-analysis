@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { getFunctions } from 'firebase/functions';
 
 // Firebase configuration - public config, no secrets
@@ -22,3 +22,23 @@ export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
+
+// Email link sign-in
+const EMAIL_LINK_STORAGE_KEY = 'emailForSignIn';
+
+export function isEmailSignInLink(url: string) {
+  return isSignInWithEmailLink(auth, url);
+}
+
+export async function completeEmailSignIn(url: string) {
+  let email = window.localStorage.getItem(EMAIL_LINK_STORAGE_KEY);
+  if (!email) {
+    email = window.prompt('Please provide your email for confirmation');
+  }
+  if (!email) {
+    throw new Error('Email is required to complete sign-in');
+  }
+  const result = await signInWithEmailLink(auth, email, url);
+  window.localStorage.removeItem(EMAIL_LINK_STORAGE_KEY);
+  return result;
+}

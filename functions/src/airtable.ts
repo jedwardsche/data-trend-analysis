@@ -5,6 +5,8 @@ import {
   AirtableBaseConfig,
   StudentRecord,
   StudentTruthFieldMapping,
+  TruthFieldMapping,
+  UnenrolledStudentFieldMapping,
   createStudentKey,
   createCampusKey,
   formatDate,
@@ -114,10 +116,29 @@ async function getAirtableConfig(db: Firestore): Promise<AirtableConfig> {
                 created: 'Created',
                 mcLeader: 'Staff (From Truth)',
                 campusFromTruth: 'Campus (from Truth)',
+                gradeLevel: 'Grade Level',
                 s1TotalPresentDays: 'S1 Total Present Days',
                 s2TotalPresentDays: 'S2 Total Present Days',
                 s1PossiblePresentDays: 'S1 Number of Possible Present Days',
                 s2PossiblePresentDays: 'S2 Number of Possible Present Days'
+              }
+            },
+            unenrolledStudent: {
+              tableIdOrName: 'Unenrolled Student',
+              fields: {
+                studentLink: 'Student',
+                went: 'Went'
+              }
+            },
+            truth: {
+              tableIdOrName: 'Truth',
+              fields: {
+                name: 'Name',
+                schoolYear: 'School Year',
+                campusName: 'Campus',
+                mcLeader: 'Staff',
+                requestedStudents: 'Requested Number of Students',
+                status: 'Status'
               }
             }
           },
@@ -158,8 +179,9 @@ async function getAirtableConfig(db: Firestore): Promise<AirtableConfig> {
                 enrollmentStatus: 'Status of Enrollment',
                 schoolYear: 'School Year',
                 created: 'Created',
-                mcLeader: 'Staff (from Truth)',
+                mcLeader: 'Staff (From Truth)',
                 campusFromTruth: 'Campus (from Truth)',
+                gradeLevel: 'Grade Level',
                 s1TotalPresentDays: 'S1 Total Present Days',
                 s2TotalPresentDays: 'S2 Total Present Days',
                 s1PossiblePresentDays: 'S1 Number of Possible Present Days',
@@ -239,6 +261,7 @@ interface TruthLookupEntry {
   status: string;
   mcLeader: string;
   truthCampus: string;
+  gradeLevel: string;
   s1PresentDays: number;
   s2PresentDays: number;
   s1PossibleDays: number;
@@ -274,11 +297,12 @@ function processStudents(
       const rawStatus = getFieldValue(record, fields.enrollmentStatus);
       const enrollmentStatus = getLastUniqueValue(rawStatus);
 
-      // Look up year-specific Date Enrolled + Status + MC Leader + Campus from Student Truth table
+      // Look up year-specific Date Enrolled + Status + MC Leader + Campus + Grade from Student Truth table
       let enrollmentDate = '';
       let truthStatus = '';
       let truthMcLeader = '';
       let truthCampus = '';
+      let truthGradeLevel = '';
       if (studentTruthLookup && studentTruthLookup.size > 0) {
         const displayName = `${firstName} ${lastName}`;
         const lookupKey = `${normalizeString(displayName).replace(/\s+/g, ' ')}|${targetYear}`;
@@ -288,6 +312,7 @@ function processStudents(
           truthStatus = truthData.status;
           truthMcLeader = truthData.mcLeader;
           truthCampus = truthData.truthCampus;
+          truthGradeLevel = truthData.gradeLevel;
         }
       }
       // Fallback: Students table "Enrollment Date" → record createdTime
@@ -312,6 +337,55 @@ function processStudents(
       // Only apply mcLeader for Micro-Campus students — branch campus students should NOT be split
       const finalMcLeader = isMicroCampus ? (mcLeader || truthMcLeader) : mcLeader;
 
+      // Extract demographic fields (field names are identical across both bases)
+      const gender = getFieldValue(record, "Student's Gender");
+      const race = getFieldValue(record, "Race:  Please check the box below that best represents your child's race: (check all that apply)");
+      const ethnicity = getFieldValue(record, "Ethnicity: Is the student of Hispanic/Latino origin?");
+      const primaryLanguage = getFieldValue(record, "What is the primary language spoken by the student?");
+      const homeLanguage = getFieldValue(record, "What is the primary language spoken in the home?");
+      // Prefer year-specific grade from Student Truth over the rollup (which aggregates all years)
+      const gradeLevel = truthGradeLevel
+        || getFieldValue(record, "Grade Level Rollup (from Student Truth)")
+        || getFieldValue(record, "Latest Grade");
+      const priorEducationalSetting = getFieldValue(record, "What educational setting is your student coming from prior to enrolling?");
+      const isMilitary = getFieldValue(record, "Does the child currently have a parent who serves in the US Military?");
+      const isHomeless = getFieldValue(record, "Is the enrolling student homeless ? (A homeless individual is one who lacks a fixed, regular, and adequate primary nighttime residence)");
+      const isImmigrant = getFieldValue(record, "Is the student an immigrant?");
+
+      // Exit destination: different field names per base
+      // Base 1 (25-26/26-27): structured dropdown field
+      // Base 2 (23-24/24-25): free-text parent note
+      const exitDestination =
+        getFieldValue(record, "Where is this student going after unenrollment?") ||
+        getFieldValue(record, "unEnrollbyParentNote") ||
+        '';
+
+      // Extract address fields
+      const studentAddress = getFieldValue(record, "Primary Address");
+      const studentCity = getFieldValue(record, "City (Primary Address where student resides most of the time)");
+      const studentState = getFieldValue(record, "State (Primary Address where student resides most of the time)")
+        || getFieldValue(record, "State (Primary Address)");
+      const studentZipCode = getFieldValue(record, "Zip Code (Primary Address where student resides most of the time)");
+
+      // Build optional demographic/address fields, omitting empty values
+      // (Firestore rejects undefined)
+      const optionalFields: Record<string, string> = {};
+      if (gender) optionalFields.gender = gender;
+      if (race) optionalFields.race = race;
+      if (ethnicity) optionalFields.ethnicity = ethnicity;
+      if (primaryLanguage) optionalFields.primaryLanguage = primaryLanguage;
+      if (homeLanguage) optionalFields.homeLanguage = homeLanguage;
+      if (gradeLevel) optionalFields.gradeLevel = gradeLevel;
+      if (priorEducationalSetting) optionalFields.priorEducationalSetting = priorEducationalSetting;
+      if (isMilitary) optionalFields.isMilitary = isMilitary;
+      if (isHomeless) optionalFields.isHomeless = isHomeless;
+      if (isImmigrant) optionalFields.isImmigrant = isImmigrant;
+      if (exitDestination) optionalFields.exitDestination = exitDestination;
+      if (studentAddress) optionalFields.address = studentAddress;
+      if (studentCity) optionalFields.city = studentCity;
+      if (studentState) optionalFields.state = studentState;
+      if (studentZipCode) optionalFields.zipCode = studentZipCode;
+
       students.set(studentKey, {
         studentKey,
         firstName,
@@ -325,7 +399,8 @@ function processStudents(
         enrolledDate: formatDate(enrollmentDate),
         isVerifiedTransfer: false,
         isGraduate: false,
-        withdrawalDate: null
+        withdrawalDate: null,
+        ...optionalFields,
       });
     } catch (err) {
       skippedCount++;
@@ -469,6 +544,9 @@ export async function syncAirtableData(
           const truthCampus = truthFields.campusFromTruth
             ? getFieldValue(record, truthFields.campusFromTruth)
             : '';
+          const truthGradeLevel = truthFields.gradeLevel
+            ? getFieldValue(record, truthFields.gradeLevel)
+            : '';
 
           // Skip Sandbox/Training truth records entirely
           if (truthMcLeader && (
@@ -524,6 +602,7 @@ export async function syncAirtableData(
                 status: status || '',
                 mcLeader: truthMcLeader || '',
                 truthCampus: truthCampus || '',
+                gradeLevel: truthGradeLevel || '',
                 s1PresentDays,
                 s2PresentDays,
                 s1PossibleDays,
@@ -547,6 +626,120 @@ export async function syncAirtableData(
             studentTruthLookups.set(yearPart, new Map());
           }
           studentTruthLookups.get(yearPart)!.set(nameKey, entry);
+        }
+      }
+
+      // Fetch Unenrolled Student table (Base 1 only) for exit destination data.
+      // The "Student" linked field points to Student Truth, which uses "Last, First" format.
+      // The "Went" field contains the exit destination dropdown value.
+      // This lookup maps normalized "first last" names to their "Went" value.
+      const unenrolledExitLookup = new Map<string, string>();
+      if (base.tables.unenrolledStudent) {
+        console.log(`  Fetching Unenrolled Student records from ${base.label}...`);
+        const unenrolledRecords = await fetchAirtableRecords(
+          base.baseId,
+          base.tables.unenrolledStudent.tableIdOrName,
+          token
+        );
+        console.log(`  Fetched ${unenrolledRecords.length} Unenrolled Student records`);
+
+        const unenrolledFields = base.tables.unenrolledStudent.fields as unknown as UnenrolledStudentFieldMapping;
+
+        for (const record of unenrolledRecords) {
+          const rawStudentName = getFieldValue(record, unenrolledFields.studentLink);
+          const went = getFieldValue(record, unenrolledFields.went);
+          if (!rawStudentName || !went) continue;
+
+          // Student linked field uses "Last, First" format (same as Student Truth)
+          const cleanName = rawStudentName.replace(/^"+|"+$/g, '').trim();
+          const nameParts = cleanName.split(',').map(s => s.trim());
+          const normalizedName = nameParts.length >= 2
+            ? normalizeString(`${nameParts[1]} ${nameParts[0]}`).replace(/\s+/g, ' ')
+            : normalizeString(cleanName).replace(/\s+/g, ' ');
+
+          unenrolledExitLookup.set(normalizedName, went);
+        }
+        console.log(`  Built Unenrolled Student exit lookup with ${unenrolledExitLookup.size} entries`);
+      }
+
+      // Fetch Truth table for "Requested Number of Students" and campus roster per campus
+      // Truth records represent campus-year combinations (e.g., "2025-2026 - Inspired Learning")
+      if (base.tables.truth) {
+        console.log(`  Fetching Truth records from ${base.label}...`);
+        const truthRecords = await fetchAirtableRecords(
+          base.baseId,
+          base.tables.truth.tableIdOrName,
+          token
+        );
+        console.log(`  Fetched ${truthRecords.length} Truth records`);
+
+        const tf = base.tables.truth.fields as unknown as TruthFieldMapping;
+
+        // Build per-year maps of campusKey → requestedStudents
+        const requestedByYearCampus = new Map<string, Map<string, number>>();
+        // Build per-year campus roster with status info
+        const rosterByYearCampus = new Map<string, Map<string, { campusName: string; mcLeader: string; status: string; requestedStudents: number }>>();
+
+        for (const record of truthRecords) {
+          const rawYear = getFieldValue(record, tf.schoolYear);
+          const campusName = getFieldValue(record, tf.campusName);
+          const mcLeader = getFieldValue(record, tf.mcLeader);
+          const requestedStr = getFieldValue(record, tf.requestedStudents);
+          const requested = parseInt(requestedStr) || 0;
+          const status = tf.status ? getFieldValue(record, tf.status) : '';
+
+          if (!rawYear || !campusName) continue;
+
+          const years = extractSchoolYears(rawYear);
+          for (const year of years) {
+            if (targetSchoolYear && year !== targetSchoolYear && year !== priorYearForLookup) continue;
+
+            const campusKey = createCampusKey(campusName, mcLeader);
+
+            // Roster: store every campus regardless of requested count
+            if (!rosterByYearCampus.has(year)) {
+              rosterByYearCampus.set(year, new Map());
+            }
+            const rosterMap = rosterByYearCampus.get(year)!;
+            const existing = rosterMap.get(campusKey);
+            rosterMap.set(campusKey, {
+              campusName,
+              mcLeader,
+              status: status || existing?.status || '',
+              requestedStudents: (existing?.requestedStudents || 0) + requested
+            });
+
+            // Legacy requestedStudents map (only campuses with requested > 0)
+            if (requested > 0) {
+              if (!requestedByYearCampus.has(year)) {
+                requestedByYearCampus.set(year, new Map());
+              }
+              const yearMap = requestedByYearCampus.get(year)!;
+              yearMap.set(campusKey, (yearMap.get(campusKey) || 0) + requested);
+            }
+          }
+        }
+
+        // Store requestedStudents in Firestore config for calculateSnapshot to read
+        for (const [year, campusMap] of requestedByYearCampus) {
+          const data: Record<string, number> = {};
+          let yearTotal = 0;
+          for (const [key, count] of campusMap) {
+            data[key] = count;
+            yearTotal += count;
+          }
+          await db.collection('config').doc(`requestedStudents-${year}`).set(data);
+          console.log(`  Stored requested students for ${year}: ${campusMap.size} campuses, total: ${yearTotal}`);
+        }
+
+        // Store campus roster in Firestore config (includes status for filtering)
+        for (const [year, campusMap] of rosterByYearCampus) {
+          const data: Record<string, { campusName: string; mcLeader: string; status: string; requestedStudents: number }> = {};
+          for (const [key, entry] of campusMap) {
+            data[key] = entry;
+          }
+          await db.collection('config').doc(`campusRoster-${year}`).set(data);
+          console.log(`  Stored campus roster for ${year}: ${campusMap.size} campuses`);
         }
       }
 
@@ -612,6 +805,24 @@ export async function syncAirtableData(
             console.log(`  Single-year base with no year field data - assigning all ${records.length} records to ${year}`);
             const students = processStudents(records, base, year, studentTruthLookup);
             console.log(`  Processed ${students.size} unique students for ${year}`);
+
+            // Apply exit destination overrides from Unenrolled Student table
+            if (unenrolledExitLookup.size > 0) {
+              let exitOverrides = 0;
+              for (const [, student] of students) {
+                const displayName = `${student.firstName} ${student.lastName}`;
+                const nameKey = normalizeString(displayName).replace(/\s+/g, ' ');
+                const went = unenrolledExitLookup.get(nameKey);
+                if (went) {
+                  student.exitDestination = went;
+                  exitOverrides++;
+                }
+              }
+              if (exitOverrides > 0) {
+                console.log(`  Applied ${exitOverrides} exit destination overrides from Unenrolled Student table`);
+              }
+            }
+
             allStudentsByYear.set(year, students);
 
             const campuses = new Set<string>();
@@ -624,6 +835,23 @@ export async function syncAirtableData(
         console.log(`  Processing ${yearRecords.length} records for ${year}...`);
         const students = processStudents(yearRecords, base, year, studentTruthLookup);
         console.log(`  Processed ${students.size} unique students for ${year}`);
+
+        // Apply exit destination overrides from Unenrolled Student table
+        if (unenrolledExitLookup.size > 0) {
+          let exitOverrides = 0;
+          for (const [, student] of students) {
+            const displayName = `${student.firstName} ${student.lastName}`;
+            const nameKey = normalizeString(displayName).replace(/\s+/g, ' ');
+            const went = unenrolledExitLookup.get(nameKey);
+            if (went) {
+              student.exitDestination = went;
+              exitOverrides++;
+            }
+          }
+          if (exitOverrides > 0) {
+            console.log(`  Applied ${exitOverrides} exit destination overrides from Unenrolled Student table`);
+          }
+        }
 
         // Merge with existing (in case multiple bases contribute to the same year)
         const existing = allStudentsByYear.get(year) || new Map();

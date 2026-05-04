@@ -5,6 +5,8 @@ import { defineSecret } from 'firebase-functions/params';
 import { syncAirtableData } from './airtable';
 import { calculateSnapshot, calculateEnrollmentTimeline } from './metrics';
 import { generatePDFReport, generateCSVExport } from './exports';
+import { getDemographicsData } from './demographics';
+import { importHistoricalData } from './historical-import';
 import type {
   GetDashboardDataRequest,
   GetSnapshotDataRequest,
@@ -22,6 +24,7 @@ admin.initializeApp();
 
 // Secrets
 const airtableToken = defineSecret('AIRTABLE_PAT');
+const lambdaEmailToken = defineSecret('LAMBDA_EMAIL_API_TOKEN');
 
 // Firestore references
 const db = admin.firestore();
@@ -92,7 +95,8 @@ export const scheduledSync = onSchedule(
     timeZone: 'America/Denver',
     secrets: [airtableToken],
     timeoutSeconds: 900,
-    memory: '1GiB'
+    memory: '8GiB',
+    cpu: 2
   },
   async () => {
     console.log('Starting scheduled Airtable sync...');
@@ -222,6 +226,11 @@ export const getDashboardData = onCall<GetDashboardDataRequest>(
         return { timelines, settings };
       }
 
+      case 'demographics': {
+        const demographics = await getDemographicsData(db, schoolYear);
+        return { demographics };
+      }
+
       default:
         throw new HttpsError('invalid-argument', 'Invalid view type');
     }
@@ -270,7 +279,8 @@ export const triggerManualSync = onCall<TriggerManualSyncRequest>(
     enforceAppCheck: false,
     secrets: [airtableToken],
     timeoutSeconds: 900,
-    memory: '1GiB'
+    memory: '8GiB',
+    cpu: 2
   },
   async (request: CallableRequest<TriggerManualSyncRequest>) => {
     await validateAdmin(request.auth);
@@ -432,6 +442,188 @@ export const updateSettings = onCall<Partial<AppSettings>>(
 /**
  * Manage allowed users (admin only)
  */
+/**
+ * Import historical data from CSV (admin only)
+ * Used for years without Airtable data (e.g., 2022-23)
+ */
+type ImportHistoricalDataRequest = {
+  csvText: string;
+  schoolYear: string;
+};
+
+export const importHistorical = onCall<ImportHistoricalDataRequest>(
+  {
+    enforceAppCheck: false,
+    timeoutSeconds: 300,
+    memory: '1GiB'
+  },
+  async (request: CallableRequest<ImportHistoricalDataRequest>) => {
+    await validateAdmin(request.auth);
+
+    const { csvText, schoolYear } = request.data;
+    if (!csvText || !schoolYear) {
+      throw new HttpsError('invalid-argument', 'csvText and schoolYear are required');
+    }
+
+    const settings = await getAppSettings();
+
+    try {
+      const result = await importHistoricalData(db, csvText, schoolYear, settings);
+
+      // Add the year to activeSchoolYears if not already there
+      if (!settings.activeSchoolYears.includes(schoolYear)) {
+        const updatedYears = [...settings.activeSchoolYears, schoolYear].sort();
+        await db.collection('config').doc('settings').set(
+          { activeSchoolYears: updatedYears },
+          { merge: true }
+        );
+      }
+
+      return {
+        success: true,
+        message: `Imported ${result.studentsCreated} students for ${schoolYear}`,
+        details: {
+          studentsCreated: result.studentsCreated,
+          studentsWithDemographics: result.studentsWithDemographics,
+          returningIn2324: result.returningIn2324,
+        }
+      };
+    } catch (error) {
+      console.error('Historical import failed:', error);
+      throw new HttpsError('internal', 'Import failed: ' + (error as Error).message);
+    }
+  }
+);
+
+/**
+ * Check if an email is in the allowed users list (no auth required)
+ * Also checks if the email already has a Google provider linked,
+ * so the frontend can direct them to use Google sign-in instead.
+ */
+export const checkEmailAccess = onCall<{ email: string }>(
+  { enforceAppCheck: false, cors: true },
+  async (request: CallableRequest<{ email: string }>) => {
+    const { email } = request.data;
+    if (!email) {
+      throw new HttpsError('invalid-argument', 'Email is required');
+    }
+
+    const allowedUsersRef = db.collection('config').doc('allowedUsers');
+    const doc = await allowedUsersRef.get();
+
+    if (!doc.exists) {
+      return { allowed: false, hasGoogleProvider: false };
+    }
+
+    const users = doc.data()?.users as AllowedUser[] | undefined;
+    const allowed = users?.some(u => u.email.toLowerCase() === email.toLowerCase()) ?? false;
+
+    // Check if the email already has a Google auth provider linked
+    let hasGoogleProvider = false;
+    if (allowed) {
+      try {
+        const userRecord = await admin.auth().getUserByEmail(email.toLowerCase());
+        hasGoogleProvider = userRecord.providerData.some(p => p.providerId === 'google.com');
+      } catch {
+        // User doesn't exist in Firebase Auth yet — that's fine
+      }
+    }
+
+    return { allowed, hasGoogleProvider };
+  }
+);
+
+/**
+ * Send a sign-in link email via the CHE Lambda email service.
+ * Generates the link server-side using Firebase Admin SDK, then
+ * sends it through api.che.systems so it comes from noreply@che.systems.
+ */
+interface SendSignInLinkRequest {
+  email: string;
+  redirectUrl: string;
+}
+
+export const sendSignInLink = onCall<SendSignInLinkRequest>(
+  { enforceAppCheck: false, cors: true, secrets: [lambdaEmailToken] },
+  async (request: CallableRequest<SendSignInLinkRequest>) => {
+    const { email, redirectUrl } = request.data;
+    if (!email || !redirectUrl) {
+      throw new HttpsError('invalid-argument', 'email and redirectUrl are required');
+    }
+
+    // Verify email is in allowed users list
+    const allowedUsersRef = db.collection('config').doc('allowedUsers');
+    const doc = await allowedUsersRef.get();
+    const users = doc.data()?.users as AllowedUser[] | undefined;
+    const allowed = users?.some(u => u.email.toLowerCase() === email.toLowerCase()) ?? false;
+
+    if (!allowed) {
+      throw new HttpsError('permission-denied', 'This email does not have access to the dashboard.');
+    }
+
+    // Check if email has Google provider
+    try {
+      const userRecord = await admin.auth().getUserByEmail(email.toLowerCase());
+      if (userRecord.providerData.some(p => p.providerId === 'google.com')) {
+        throw new HttpsError('failed-precondition', 'This email is associated with Google sign-in.');
+      }
+    } catch (err) {
+      // Re-throw our own HttpsErrors
+      if (err instanceof HttpsError) throw err;
+      // User doesn't exist in Firebase Auth yet — that's fine
+    }
+
+    // Generate the sign-in link using Admin SDK
+    const actionCodeSettings = {
+      url: redirectUrl,
+      handleCodeInApp: true,
+    };
+
+    let signInLink: string;
+    try {
+      signInLink = await admin.auth().generateSignInWithEmailLink(
+        email,
+        actionCodeSettings
+      );
+    } catch (err) {
+      console.error('Failed to generate sign-in link:', err);
+      throw new HttpsError('internal', 'Failed to generate sign-in link');
+    }
+
+    // Send email via CHE Lambda email service
+    const token = lambdaEmailToken.value();
+    try {
+      const response = await fetch('https://api.che.systems/email/sendmail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-token': token,
+        },
+        body: JSON.stringify({
+          to: email,
+          subject: 'Sign in to CHE Enrollment Data',
+          template: 'kpi-signin',
+          buttonText: 'Sign In to Dashboard',
+          buttonLink: signInLink,
+          body: 'Click the button below to sign in to CHE Enrollment Data. No password needed. This link expires in 10 minutes.',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Lambda email API error:', response.status, errorText);
+        throw new HttpsError('internal', 'Failed to send sign-in email');
+      }
+
+      return { success: true, message: 'Sign-in link sent successfully' };
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      console.error('Failed to send email:', err);
+      throw new HttpsError('internal', 'Failed to send sign-in email');
+    }
+  }
+);
+
 type ManageUsersRequest = {
   action: 'add' | 'remove' | 'list';
   email?: string;

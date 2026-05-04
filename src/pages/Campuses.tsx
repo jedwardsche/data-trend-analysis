@@ -4,12 +4,12 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useOverviewData } from '@/hooks/useDashboardData';
-import { formatNumber, formatPercent } from '@/lib/formatters';
-import { Search, ChevronDown, ChevronRight, ArrowUpDown, Building2, Users, User } from 'lucide-react';
+import { formatNumber, formatPercent, getRetentionColor } from '@/lib/formatters';
+import { Search, ChevronDown, ChevronRight, ArrowUpDown, Building2, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { groupCampusesByType } from '@/lib/campus-utils';
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from '@/components/ui/tooltip';
 import type { CampusMetrics } from '@/types';
 
 interface OutletContext {
@@ -32,8 +32,7 @@ export function CampusesPage() {
   const [sortField, setSortField] = useState<SortField>('totalEnrollment');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [campusFilter, setCampusFilter] = useState<CampusFilter>('all');
-  const [branchOpen, setBranchOpen] = useState(true);
-  const [microOpen, setMicroOpen] = useState(true);
+  const [campusesOpen, setCampusesOpen] = useState(true);
 
   if (isLoading) {
     return <CampusesSkeleton />;
@@ -60,7 +59,7 @@ export function CampusesPage() {
 
       if (typeof aVal === 'string') {
         const cmp = aVal.localeCompare(bVal as string);
-        // When campusName is identical (e.g. all "Micro-Campus"), fall back to mcLeader
+        // When campusName is identical, fall back to mcLeader
         if (cmp === 0 && sortField === 'campusName') {
           return direction * a.mcLeader.localeCompare(b.mcLeader);
         }
@@ -74,13 +73,8 @@ export function CampusesPage() {
       return true;
     });
 
-  const { branch, microCampus } = groupCampusesByType(allCampuses);
-
   // Total campus count from unfiltered data (before search)
-  const allUnfiltered = Object.entries(data.snapshot.byCampus)
-    .map(([key, campus]) => ({ key, ...campus }));
-  const unfilteredGroups = groupCampusesByType(allUnfiltered);
-  const totalCampusCount = unfilteredGroups.branch.length + unfilteredGroups.microCampus.length;
+  const totalCampusCount = Object.keys(data.snapshot.byCampus).length;
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -94,14 +88,9 @@ export function CampusesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold">Campuses</h1>
-          <Badge variant="outline" className="text-base px-2.5 py-0.5">
-            {totalCampusCount}
-          </Badge>
-        </div>
+        <h1 className="text-3xl font-bold">Campuses</h1>
         <p className="text-muted-foreground">
-          {unfilteredGroups.branch.length} branch &middot; {unfilteredGroups.microCampus.length} micro-campus &mdash; {selectedYear}
+          {totalCampusCount} campuses &mdash; {selectedYear}
         </p>
       </div>
 
@@ -149,24 +138,14 @@ export function CampusesPage() {
         </div>
       </div>
 
-      {/* Branch Campuses */}
-      {branch.length > 0 && (
+      {/* All Campuses */}
+      {allCampuses.length > 0 && (
         <CampusGroup
-          title="Branch Campuses"
+          title="All Campuses"
           icon={<Building2 className="h-5 w-5" />}
-          campuses={branch}
-          isOpen={branchOpen}
-          onToggle={() => setBranchOpen(!branchOpen)}
-          onCampusClick={(key) => navigate(`/dashboard/campus/${encodeURIComponent(key)}`)}
-        />
-      )}
-
-      {/* Micro-Campuses — nested by individual leader */}
-      {microCampus.length > 0 && (
-        <MicroCampusGroup
-          campuses={microCampus}
-          isOpen={microOpen}
-          onToggle={() => setMicroOpen(!microOpen)}
+          campuses={allCampuses}
+          isOpen={campusesOpen}
+          onToggle={() => setCampusesOpen(!campusesOpen)}
           onCampusClick={(key) => navigate(`/dashboard/campus/${encodeURIComponent(key)}`)}
         />
       )}
@@ -176,6 +155,7 @@ export function CampusesPage() {
           No campuses found matching your search
         </p>
       )}
+
     </div>
   );
 }
@@ -220,90 +200,12 @@ function CampusGroup({ title, icon, campuses, isOpen, onToggle, onCampusClick }:
   );
 }
 
-interface MicroCampusGroupProps {
-  campuses: CampusWithKey[];
-  isOpen: boolean;
-  onToggle: () => void;
-  onCampusClick: (key: string) => void;
-}
-
-function MicroCampusGroup({ campuses, isOpen, onToggle, onCampusClick }: MicroCampusGroupProps) {
-  const totalEnrollment = campuses.reduce((sum, c) => sum + c.totalEnrollment, 0);
-
-  return (
-    <Collapsible open={isOpen} onOpenChange={onToggle}>
-      <CollapsibleTrigger asChild>
-        <button className="flex items-center gap-2 sm:gap-3 w-full text-left p-3 rounded-lg hover:bg-muted/50 transition-colors">
-          {isOpen ? <ChevronDown className="h-5 w-5 text-muted-foreground shrink-0" /> : <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />}
-          <Users className="h-5 w-5 shrink-0" />
-          <span className="text-base sm:text-lg font-semibold">Micro-Campuses</span>
-          <Badge variant="secondary">{campuses.length}</Badge>
-          <span className="text-xs sm:text-sm text-muted-foreground ml-auto hidden xs:inline">
-            {formatNumber(totalEnrollment)} total
-          </span>
-        </button>
-      </CollapsibleTrigger>
-      <CollapsibleContent>
-        <div className="grid gap-1 pt-1 pl-2 sm:pl-8">
-          {campuses.map(campus => (
-            <Card
-              key={campus.key}
-              className="cursor-pointer hover:bg-muted/50 transition-colors"
-              onClick={() => onCampusClick(campus.key)}
-            >
-              <CardContent className="px-3 py-1">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <User className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                      <p className="font-medium text-sm truncate">
-                        {campus.mcLeader || 'Unknown Leader'}
-                      </p>
-                      <CampusSizeBadge enrollment={campus.totalEnrollment} />
-                      {campus.isNewCampus && (
-                        <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/15 text-xs">New</Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-3 sm:gap-5 text-sm">
-                    <div className="sm:text-right">
-                      <p className="text-muted-foreground text-xs sm:text-sm">Enrolled</p>
-                      <p className="font-semibold">{formatNumber(campus.totalEnrollment)}</p>
-                    </div>
-                    <div className="sm:text-right">
-                      <p className="text-muted-foreground text-xs sm:text-sm">Returning</p>
-                      <p className="font-semibold">{formatNumber(campus.returningStudents)}</p>
-                    </div>
-                    <div className="sm:text-right">
-                      <p className="text-muted-foreground text-xs sm:text-sm">New</p>
-                      <p className="font-semibold">{formatNumber(campus.newStudents)}</p>
-                    </div>
-                    <div className="sm:text-right">
-                      <p className="text-muted-foreground text-xs sm:text-sm">Retention</p>
-                      {campus.isNewCampus ? (
-                        <p className="font-semibold text-muted-foreground">N/A</p>
-                      ) : (
-                        <p className={`font-semibold ${
-                          campus.retentionRate >= 80 ? 'text-success' :
-                          campus.retentionRate >= 60 ? 'text-warning' :
-                          'text-destructive'
-                        }`}>
-                          {formatPercent(campus.retentionRate)}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </CollapsibleContent>
-    </Collapsible>
-  );
-}
 
 function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () => void }) {
+  const isMicroCampus = campus.campusName.toLowerCase().includes('micro-campus');
+  const displayName = isMicroCampus ? (campus.mcLeader || 'Campus') : campus.campusName;
+  const subtitle = isMicroCampus ? null : campus.mcLeader;
+
   return (
     <Card
       className="cursor-pointer hover:bg-muted/50 transition-colors"
@@ -313,19 +215,19 @@ function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () =>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
-              <p className="font-medium text-sm truncate">{campus.campusName}</p>
+              <p className="font-medium text-sm truncate">{displayName}</p>
               <CampusSizeBadge enrollment={campus.totalEnrollment} />
               {campus.isNewCampus && (
                 <Badge className="bg-primary/15 text-primary border-primary/30 hover:bg-primary/15 text-xs">New</Badge>
               )}
             </div>
-            {campus.mcLeader && (
-              <p className="text-xs text-muted-foreground">{campus.mcLeader}</p>
+            {subtitle && (
+              <p className="text-xs text-muted-foreground">{subtitle}</p>
             )}
           </div>
-          <div className="grid grid-cols-4 gap-3 sm:gap-5 text-sm">
+          <div className="grid grid-flow-col auto-cols-max gap-x-10.5 text-sm">
             <div className="sm:text-right">
-              <p className="text-muted-foreground text-xs sm:text-sm">Enrolled</p>
+              <p className="text-muted-foreground text-xs sm:text-sm">Currently Enrolled</p>
               <p className="font-semibold">{formatNumber(campus.totalEnrollment)}</p>
             </div>
             <div className="sm:text-right">
@@ -341,13 +243,23 @@ function CampusCard({ campus, onClick }: { campus: CampusWithKey; onClick: () =>
               {campus.isNewCampus ? (
                 <p className="font-semibold text-muted-foreground">N/A</p>
               ) : (
-                <p className={`font-semibold ${
-                  campus.retentionRate >= 80 ? 'text-success' :
-                  campus.retentionRate >= 60 ? 'text-warning' :
-                  'text-destructive'
-                }`}>
-                  {formatPercent(campus.retentionRate)}
-                </p>
+                <div className="flex items-center gap-1 justify-end">
+                  <p className={`font-semibold ${getRetentionColor(campus.retentionRate)}`}>
+                    {formatPercent(campus.retentionRate)}
+                  </p>
+                  {campus.eligiblePriorYear > 0 && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3 w-3 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {formatNumber(campus.returningStudents)} of {formatNumber(campus.eligiblePriorYear)} prior year students returned
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
               )}
             </div>
           </div>

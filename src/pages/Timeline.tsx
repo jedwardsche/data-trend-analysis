@@ -6,14 +6,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { EnrollmentTimeline } from '@/components/charts/EnrollmentTimeline';
 import { useTimelineData, useOverviewData } from '@/hooks/useDashboardData';
 import { formatNumber, formatDate } from '@/lib/formatters';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 
 interface OutletContext {
   selectedYear: string;
@@ -48,9 +40,6 @@ export function TimelinePage() {
   const peakWeek = timeline.reduce((max, week) =>
     week.newEnrollments > max.newEnrollments ? week : max
   );
-
-  // Calculate total new enrollments
-  const totalNew = timeline.reduce((sum, week) => sum + week.newEnrollments, 0);
 
   return (
     <div className="space-y-6">
@@ -128,38 +117,6 @@ export function TimelinePage() {
         </CardContent>
       </Card>
 
-      {/* Weekly Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Weekly Breakdown</CardTitle>
-        </CardHeader>
-        <CardContent className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="whitespace-nowrap">Week</TableHead>
-                <TableHead className="whitespace-nowrap">Start Date</TableHead>
-                <TableHead className="text-right whitespace-nowrap">New Enrollments</TableHead>
-                <TableHead className="text-right whitespace-nowrap">Cumulative Total</TableHead>
-                <TableHead className="text-right whitespace-nowrap">% of Total</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {timeline.map(week => (
-                <TableRow key={week.id}>
-                  <TableCell className="font-medium">Week {week.weekNumber}</TableCell>
-                  <TableCell>{new Date(week.weekStart).toLocaleDateString()}</TableCell>
-                  <TableCell className="text-right">{formatNumber(week.newEnrollments)}</TableCell>
-                  <TableCell className="text-right">{formatNumber(week.cumulativeEnrollment)}</TableCell>
-                  <TableCell className="text-right">
-                    {totalNew > 0 ? ((week.newEnrollments / totalNew) * 100).toFixed(1) : 0}%
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
     </div>
   );
 }

@@ -21,9 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { RefreshCw, UserPlus, Trash2, Download, CheckCircle2, XCircle, X } from 'lucide-react';
+import { RefreshCw, UserPlus, Trash2, Download, CheckCircle2, XCircle, X, Upload } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { triggerManualSync, updateSettings, manageAllowedUsers, exportCSV } from '@/lib/functions';
+import { triggerManualSync, updateSettings, manageAllowedUsers, exportCSV, importHistoricalData } from '@/lib/functions';
 import { useOverviewData } from '@/hooks/useDashboardData';
 import { formatCurrency, resolveFundingTotal } from '@/lib/formatters';
 import { toast } from 'sonner';
@@ -48,6 +48,9 @@ export function AdminPage() {
   const [nonStarterInputs, setNonStarterInputs] = useState<Record<string, string>>({});
   const [syncStatus, setSyncStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [exportYear, setExportYear] = useState(selectedYear);
+  const [importCsv, setImportCsv] = useState('');
+  const [importYear, setImportYear] = useState('2022-23');
+  const [importStatus, setImportStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Fetch settings via overview data
   const { data: overviewData } = useOverviewData(selectedYear);
@@ -139,7 +142,42 @@ export function AdminPage() {
     }
   });
 
-  // Build export year options from settings (with 2026-27 appended)
+  // Historical import mutation
+  const importMutation = useMutation({
+    mutationFn: (data: { csvText: string; schoolYear: string }) =>
+      importHistoricalData(data),
+    onMutate: () => {
+      setImportStatus(null);
+    },
+    onSuccess: (data) => {
+      const d = data.details;
+      setImportStatus({
+        type: 'success',
+        message: `Imported ${d.studentsCreated} students (${d.studentsWithDemographics} with demographics). ${d.returningIn2324} returned in 23-24.`
+      });
+      setImportCsv('');
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['snapshot'] });
+    },
+    onError: (error) => {
+      setImportStatus({ type: 'error', message: 'Import failed: ' + (error as Error).message });
+    }
+  });
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setImportCsv(event.target?.result as string || '');
+    };
+    reader.readAsText(file);
+  };
+
+  // Build year lists from settings with extra years appended
+  const adminYears = settings
+    ? [...new Set([...settings.activeSchoolYears, '2022-23'])].sort()
+    : [selectedYear];
   const exportYears = settings
     ? [...new Set([...settings.activeSchoolYears, '2026-27'])].sort().reverse()
     : [selectedYear];
@@ -264,7 +302,7 @@ export function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {settings.activeSchoolYears.map(year => {
+                    {adminYears.map(year => {
                       const saved = settings.fundingByYear?.[year];
                       const savedObj = saved != null && typeof saved === 'object' ? saved : null;
                       const savedTotal = resolveFundingTotal(saved);
@@ -346,7 +384,7 @@ export function AdminPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {settings.activeSchoolYears.map(year => {
+                {adminYears.map(year => {
                   const saved = settings.nonStartersByYear?.[year];
                   const input = nonStarterInputs[year];
                   const isCurrent = year === settings.currentSchoolYear;
@@ -433,6 +471,80 @@ export function AdminPage() {
               Timeline (CSV)
             </Button>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Historical Data Import */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Historical Data Import</CardTitle>
+          <CardDescription>
+            Import student data from a CSV for years without Airtable tracking. The system will cross-reference
+            against existing years to determine returning students and pull demographics.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="importYear">School Year</Label>
+              <Input
+                id="importYear"
+                value={importYear}
+                onChange={(e) => setImportYear(e.target.value)}
+                placeholder="2022-23"
+                className="w-32"
+              />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>CSV File</Label>
+            <p className="text-xs text-muted-foreground">
+              Format: Student Name, SIS Number, Grade (one per line). Names in &quot;Last, First M.&quot; format.
+            </p>
+            <Input
+              type="file"
+              accept=".csv,.txt"
+              onChange={handleFileUpload}
+            />
+          </div>
+          {importCsv && (
+            <div className="space-y-2">
+              <Label>Preview ({importCsv.split('\n').filter(l => l.trim()).length} lines)</Label>
+              <pre className="text-xs bg-muted p-3 rounded-md max-h-40 overflow-auto whitespace-pre-wrap">
+                {importCsv.split('\n').slice(0, 10).join('\n')}
+                {importCsv.split('\n').length > 10 ? '\n...' : ''}
+              </pre>
+            </div>
+          )}
+          <Button
+            onClick={() => importMutation.mutate({ csvText: importCsv, schoolYear: importYear })}
+            disabled={importMutation.isPending || !importCsv || !importYear}
+          >
+            <Upload className={`mr-2 h-4 w-4 ${importMutation.isPending ? 'animate-spin' : ''}`} />
+            {importMutation.isPending ? 'Importing...' : 'Import Data'}
+          </Button>
+          {importStatus && (
+            <div className={`flex items-start justify-between gap-2 rounded-md border p-3 ${
+              importStatus.type === 'success'
+                ? 'border-success/30 bg-success/10 text-success'
+                : 'border-destructive/30 bg-destructive/10 text-destructive'
+            }`}>
+              <div className="flex items-start gap-2">
+                {importStatus.type === 'success' ? (
+                  <CheckCircle2 className="h-5 w-5 mt-0.5 shrink-0" />
+                ) : (
+                  <XCircle className="h-5 w-5 mt-0.5 shrink-0" />
+                )}
+                <p className="text-sm font-medium">{importStatus.message}</p>
+              </div>
+              <button
+                onClick={() => setImportStatus(null)}
+                className="shrink-0 rounded-sm opacity-70 hover:opacity-100"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

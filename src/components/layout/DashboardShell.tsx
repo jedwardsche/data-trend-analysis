@@ -1,17 +1,20 @@
 import { useState } from "react";
 import { Link, useLocation, Outlet } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Building2,
-  TrendingUp,
-  CalendarDays,
-  Settings,
   LogOut,
   ChevronDown,
   Menu,
 } from "lucide-react";
+import {
+  OverviewIcon,
+  CampusesIcon,
+  YearOverYearIcon,
+  DemographicsIcon,
+  AdminIcon,
+} from "@/components/layout/AnimatedNavIcons";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { PdfButton } from "@/components/ui/pdf-button";
 import { useOverviewData } from "@/hooks/useDashboardData";
 import cheLogo from "@/assets/che-logo.png";
 import {
@@ -35,32 +38,32 @@ const navItems = [
   {
     path: "/dashboard",
     label: "Overview",
-    icon: LayoutDashboard,
+    icon: OverviewIcon,
     adminOnly: false,
   },
   {
     path: "/dashboard/campuses",
     label: "Campuses",
-    icon: Building2,
+    icon: CampusesIcon,
     adminOnly: false,
   },
   {
     path: "/dashboard/yoy",
     label: "Year over Year",
-    icon: TrendingUp,
+    icon: YearOverYearIcon,
     adminOnly: false,
   },
   {
-    path: "/dashboard/timeline",
-    label: "Enrollment Timeline",
-    icon: CalendarDays,
+    path: "/dashboard/demographics",
+    label: "Demographics",
+    icon: DemographicsIcon,
     adminOnly: false,
   },
-  { path: "/dashboard/admin", label: "Admin", icon: Settings, adminOnly: true },
+  { path: "/dashboard/admin", label: "Admin", icon: AdminIcon, adminOnly: true },
 ];
 
 // Default school years - will be updated from settings
-const schoolYears = ["2026-27", "2025-26", "2024-25", "2023-24"];
+const schoolYears = ["2026-27", "2025-26", "2024-25", "2023-24", "2022-23"];
 
 interface DashboardShellProps {
   selectedYear: string;
@@ -113,9 +116,9 @@ export function DashboardShell({
       .toUpperCase() || "U";
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Top Header */}
-      <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
+      <header className="shrink-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="flex h-16 items-center px-4 gap-4">
           <Button
             variant="ghost"
@@ -126,8 +129,8 @@ export function DashboardShell({
             <Menu className="h-5 w-5" />
           </Button>
 
-          <div className="flex items-center gap-2">
-            <img src={cheLogo} alt="CHE" className="h-8 w-auto shrink-0" />
+          <div className="flex items-center gap-2 shrink-0">
+            <img src={cheLogo} alt="CHE" className="h-8 w-8 object-contain shrink-0 hidden min-[440px]:block" />
             <span className="font-semibold text-lg hidden sm:inline">
               CHE Data
             </span>
@@ -135,19 +138,22 @@ export function DashboardShell({
 
           <div className="flex-1" />
 
-          {/* School Year Selector */}
-          <Select value={selectedYear} onValueChange={onYearChange}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="School Year" />
-            </SelectTrigger>
-            <SelectContent>
-              {schoolYears.map((year) => (
-                <SelectItem key={year} value={year}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1">
+            <PdfButton />
+            {/* School Year Selector */}
+            <Select value={selectedYear} onValueChange={onYearChange}>
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="School Year" />
+              </SelectTrigger>
+              <SelectContent>
+                {schoolYears.map((year) => (
+                  <SelectItem key={year} value={year}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* User Menu */}
           <DropdownMenu>
@@ -173,11 +179,11 @@ export function DashboardShell({
         </div>
       </header>
 
-      <div className="flex">
+      <div className="flex flex-1 min-h-0">
         {/* Sidebar */}
         <aside
           className={cn(
-            "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r bg-background transition-transform md:translate-x-0",
+            "fixed left-0 top-16 z-40 h-[calc(100vh-4rem)] w-64 border-r bg-background transition-transform md:relative md:top-0 md:h-auto md:translate-x-0",
             sidebarOpen ? "translate-x-0" : "-translate-x-full",
           )}
         >
@@ -200,7 +206,7 @@ export function DashboardShell({
                       : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
                   )}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon className="h-4 w-4" isActive={isActive} />
                   {item.label}
                 </Link>
               );
@@ -209,7 +215,7 @@ export function DashboardShell({
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 p-4 md:p-6 transition-all md:ml-64 overflow-x-hidden">
+        <main className="flex-1 p-4 md:p-6 overflow-y-auto overflow-x-hidden overscroll-none">
           <Outlet context={{ selectedYear, isAdmin }} />
         </main>
       </div>

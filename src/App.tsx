@@ -10,9 +10,10 @@ const LoginPage = lazy(() => import('@/pages/Login').then(m => ({ default: m.Log
 const DashboardPage = lazy(() => import('@/pages/Dashboard').then(m => ({ default: m.DashboardPage })));
 const CampusesPage = lazy(() => import('@/pages/Campuses').then(m => ({ default: m.CampusesPage })));
 const YearOverYearPage = lazy(() => import('@/pages/YearOverYear').then(m => ({ default: m.YearOverYearPage })));
-const TimelinePage = lazy(() => import('@/pages/Timeline').then(m => ({ default: m.TimelinePage })));
+// const TimelinePage = lazy(() => import('@/pages/Timeline').then(m => ({ default: m.TimelinePage })));
 const AdminPage = lazy(() => import('@/pages/Admin').then(m => ({ default: m.AdminPage })));
 const CampusDetailPage = lazy(() => import('@/pages/CampusDetail').then(m => ({ default: m.CampusDetailPage })));
+const DemographicsPage = lazy(() => import('@/pages/Demographics').then(m => ({ default: m.DemographicsPage })));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,7 +43,14 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function AppRoutes() {
-  const [selectedYear, setSelectedYear] = useState('2026-27');
+  const [selectedYear, setSelectedYear] = useState(() => {
+    return localStorage.getItem('selectedSchoolYear') || '2026-27';
+  });
+
+  const handleYearChange = (year: string) => {
+    localStorage.setItem('selectedSchoolYear', year);
+    setSelectedYear(year);
+  };
 
   const fallback = (
     <div className="min-h-screen flex items-center justify-center">
@@ -60,7 +68,7 @@ function AppRoutes() {
             <ProtectedRoute>
               <DashboardShell
                 selectedYear={selectedYear}
-                onYearChange={setSelectedYear}
+                onYearChange={handleYearChange}
               />
             </ProtectedRoute>
           }
@@ -69,7 +77,8 @@ function AppRoutes() {
           <Route path="campuses" element={<CampusesPage />} />
           <Route path="campus/:campusKey" element={<CampusDetailPage />} />
           <Route path="yoy" element={<YearOverYearPage />} />
-          <Route path="timeline" element={<TimelinePage />} />
+          {/* <Route path="timeline" element={<TimelinePage />} /> */}
+          <Route path="demographics" element={<DemographicsPage />} />
           <Route path="admin" element={<AdminPage />} />
         </Route>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -78,13 +78,9 @@ async function getAirtableConfig(db: Firestore): Promise<AirtableConfig> {
   const configDoc = await db.collection('config').doc('airtable').get();
 
   if (!configDoc.exists) {
-    return {
-      bases: [
-        {
-          baseId: 'appnol2rxwLMp4WfV',
-          schoolYears: ['2025-26', '2026-27'],
-          label: 'Students 25-26 & 26-27',
-          tables: {
+    // Table/field schema shared by the live CHE base and its frozen year-end copies
+    // (the frozen copies are full duplicates of the live base, same table IDs and field names).
+    const currentSchemaTables: AirtableConfig['bases'][number]['tables'] = {
             students: {
               tableIdOrName: 'Students',
               fields: {
@@ -141,7 +137,26 @@ async function getAirtableConfig(db: Firestore): Promise<AirtableConfig> {
                 status: 'Status'
               }
             }
-          },
+    };
+
+    return {
+      bases: [
+        {
+          // Live operating base: current year only. Past years must NOT be read from here —
+          // wind-down edits (e.g. "Summer Unenrollment") rewrite prior-year statuses in place.
+          baseId: 'appnol2rxwLMp4WfV',
+          schoolYears: ['2026-27'],
+          label: 'Students 26-27 (live)',
+          tables: currentSchemaTables,
+          attendanceMode: 'absence'
+        },
+        {
+          // Frozen copy of the live base taken 2026-06-01 ("CHE (June 1, 2026) - 25-26 Pupil Count Final").
+          // Authoritative year-end source for 2025-26.
+          baseId: 'appcua2S6zTdoKCTa',
+          schoolYears: ['2025-26'],
+          label: 'Students 25-26 (frozen 2026-06-01)',
+          tables: currentSchemaTables,
           attendanceMode: 'absence'
         },
         {
@@ -321,10 +336,11 @@ function processStudents(
           (record.createdTime ? record.createdTime : '');
       }
 
-      // Use Student Truth enrollment status as fallback when Students table status is empty
-      // This is critical for older years (e.g. 23-24) where Students table status is often blank
-      // but Student Truth has the accurate per-year status (matching Python's direct query approach)
-      const finalEnrollmentStatus = enrollmentStatus || truthStatus;
+      // Prefer the year-specific Student Truth status. The Students-table field is a rollup across
+      // ALL of a student's years (getLastUniqueValue picks the latest), so for any past year it
+      // reports the student's most recent status, not that year's. Fall back to the rollup only when
+      // no Student Truth record exists for this student/year.
+      const finalEnrollmentStatus = truthStatus || enrollmentStatus;
 
       // Use the truth campus (year-specific) to determine the ACTUAL campus.
       // The Students table campus field shows ALL campuses from ALL years (linked record history),
@@ -930,8 +946,33 @@ export async function syncAirtableData(
     }
   }
 
-  // Save to Firestore
+  // Years that exist only in Firestore (historical CSV imports such as 2022-23) are not in any
+  // Airtable base, so the key-based lookup above can never see them. Those imports have no DOB and
+  // are keyed on SIS number, so match them by normalized "first|last" name instead. Without this,
+  // every nightly sync resets isReturningStudent to false for the year after an imported year.
   const studentsRef = db.collection('students');
+  const yearsInAirtable = new Set(config.bases.flatMap(b => b.schoolYears));
+  const nameKeyOf = (first: string | undefined, last: string | undefined): string =>
+    `${normalizeString(first || '')}|${normalizeString(last || '')}`;
+  const importedYearNameLookup = new Map<string, Set<string>>();
+  for (const year of allStudentsByYear.keys()) {
+    if (priorYearForLookup && year === priorYearForLookup) continue;
+    const yp = year.split('-').map(p => parseInt(p));
+    const prior = `${yp[0] - 1}-${yp[1] - 1}`;
+    if (yearsInAirtable.has(prior) || importedYearNameLookup.has(prior)) continue;
+    const priorDocs = await studentsRef.where('schoolYear', '==', prior).get();
+    if (priorDocs.empty) continue;
+    const names = new Set<string>();
+    for (const doc of priorDocs.docs) {
+      const s = doc.data() as StudentRecord;
+      if (isNonStarterStatus(s.enrollmentStatus || '')) continue;
+      names.add(nameKeyOf(s.firstName, s.lastName));
+    }
+    importedYearNameLookup.set(prior, names);
+    console.log(`  Prior year ${prior} is Firestore-only (historical import): ${names.size} names loaded for returning-student matching`);
+  }
+
+  // Save to Firestore
   const pendingWrites: Array<{ ref: FirebaseFirestore.DocumentReference; data: StudentRecord }> = [];
 
   for (const [year, students] of allStudentsByYear) {
@@ -997,7 +1038,8 @@ export async function syncAirtableData(
       const fullStudent: StudentRecord = {
         id: docId,
         ...student as Omit<StudentRecord, 'id' | 'isReturningStudent' | 'isReturningCampus' | 'attendedAtLeastOnce' | 'syncedAt'>,
-        isReturningStudent: studentYears.has(priorYear),
+        isReturningStudent: studentYears.has(priorYear) ||
+          (importedYearNameLookup.get(priorYear)?.has(nameKeyOf(student.firstName, student.lastName)) ?? false),
         isReturningCampus: campusYears.has(priorYear),
         attendedAtLeastOnce,
         withdrawalDate,
